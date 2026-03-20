@@ -745,32 +745,57 @@ function showDayDetail(key,label){
   daySubs.forEach(function(s,i){
     var r=rec[i];if(!r)return;
     var item=document.createElement('div');item.className='day-detail-item';
-    var extra='';
-    // 사진
+    item.style.cursor='pointer';
+    item.style.flexDirection='column';
+    item.style.alignItems='stretch';
+    item.style.gap='0';
+
+    // 항상 보이는 헤더
+    var headerDiv=document.createElement('div');
+    headerDiv.style.cssText='display:flex;align-items:center;gap:9px;padding:2px 0';
+    var hasContent=r.note||(r.photos&&r.photos.length)||(r.audios&&r.audios.length)||(r.comments&&r.comments.length)||r.parentMsg;
+    headerDiv.innerHTML='<div style="font-size:.95rem;flex-shrink:0">'+(r.done?'✅':'⭕')+'</div>'
+      +'<div style="flex:1;min-width:0"><div class="detail-task-name">'+s+'</div></div>'
+      +(hasContent?'<div style="font-size:.75rem;color:var(--text-muted)">▼</div>':'');
+
+    // 펼쳐지는 상세 내용
+    var bodyDiv=document.createElement('div');
+    bodyDiv.style.cssText='display:none;padding:8px 0 4px 28px;display:none;flex-direction:column;gap:6px';
+    var bodyHtml='';
+    if(r.note) bodyHtml+='<div style="font-size:.82rem;color:var(--text);background:var(--surface2);border-radius:8px;padding:7px 10px">✏️ '+r.note+'</div>';
     if(r.photos&&r.photos.length){
-      extra+='<div class="detail-media">';
-      r.photos.forEach(function(src){extra+='<img class="detail-photo" src="'+src+'" onclick="openImgViewer(this.src)" style="width:56px;height:56px;border-radius:8px;object-fit:cover;border:1.5px solid var(--border);cursor:pointer">'});
-      extra+='</div>';
+      bodyHtml+='<div style="display:flex;gap:6px;flex-wrap:wrap">';
+      r.photos.forEach(function(src){bodyHtml+='<img src="'+src+'" onclick="openImgViewer(this.src)" style="width:72px;height:72px;border-radius:9px;object-fit:cover;border:1.5px solid var(--border);cursor:pointer">'});
+      bodyHtml+='</div>';
     }
-    // 음성
     if(r.audios&&r.audios.length){
-      extra+='<div class="detail-media">';
-      r.audios.forEach(function(src,ai){extra+='<audio controls src="'+src+'" style="height:28px;max-width:180px"></audio>'});
-      extra+='</div>';
+      r.audios.forEach(function(src){bodyHtml+='<audio controls src="'+src+'" style="height:30px;width:100%;max-width:220px"></audio>'});
     }
-    // 부모 댓글
+    if(r.parentMsg) bodyHtml+='<div style="font-size:.8rem;color:var(--accent);font-weight:600">'+r.parentMsg+'</div>';
     if(r.comments&&r.comments.length){
-      extra+='<div style="margin-top:5px;display:flex;flex-direction:column;gap:3px">';
       r.comments.forEach(function(c){
         var ct=new Date(c.at);
-        extra+='<div style="background:var(--accent-light);border-radius:8px;padding:5px 8px;font-size:.75rem">';
-        extra+='<span style="font-weight:700;color:var(--accent)">💬 '+c.from+'</span> '+c.text;
-        extra+='<span style="font-size:.65rem;color:var(--text-dim);margin-left:5px">'+ct.getHours()+':'+String(ct.getMinutes()).padStart(2,'0')+'</span>';
-        extra+='</div>';
+        bodyHtml+='<div style="background:var(--accent-light);border-radius:8px;padding:6px 9px;font-size:.78rem">'
+          +'<span style="font-weight:700;color:var(--accent)">💬 '+c.from+'</span> '+c.text
+          +'<span style="font-size:.65rem;color:var(--text-dim);margin-left:5px">'+ct.getHours()+':'+String(ct.getMinutes()).padStart(2,'0')+'</span>'
+          +'</div>';
       });
-      extra+='</div>';
     }
-    item.innerHTML='<div style="font-size:.95rem;flex-shrink:0">'+(r.done?'✅':'⭕')+'</div><div style="flex:1;min-width:0"><div class="detail-task-name">'+s+'</div>'+(r.note?'<div class="detail-task-note">'+r.note+'</div>':'')+(r.parentMsg?'<div class="detail-task-note" style="color:var(--accent)">'+r.parentMsg+'</div>':'')+extra+'</div>';
+    bodyDiv.innerHTML=bodyHtml;
+
+    // 클릭 토글
+    var expanded=false;
+    if(hasContent){
+      item.onclick=function(){
+        expanded=!expanded;
+        bodyDiv.style.display=expanded?'flex':'none';
+        var arrow=headerDiv.querySelector('div:last-child');
+        if(arrow)arrow.textContent=expanded?'▲':'▼';
+      };
+    }
+
+    item.appendChild(headerDiv);
+    if(hasContent) item.appendChild(bodyDiv);
     list.appendChild(item);
   });
   detail.scrollIntoView({behavior:'smooth',block:'nearest'});
