@@ -539,11 +539,22 @@ function setTodayHeader(){
   document.getElementById('today-date-h1').innerHTML=(n.getMonth()+1)+'월 '+n.getDate()+'일 ('+days[n.getDay()]+')'+badge+'<span class="sync-dot" id="sync-dot"></span>';
 }
 function checkParentBanner(){
-  var rec=records[todayKey()]||{},subs=todaySubjects(),latest='',latestTime='';
-  subs.forEach(function(_,i){var r=rec[i];if(r&&r.parentMsg&&r.parentMsgAt&&(!latestTime||r.parentMsgAt>latestTime)){latest=r.parentMsg;latestTime=r.parentMsgAt}});
+  var rec=records[todayKey()]||{},subs=todaySubjects(),latest='',latestTime='',latestComment='',latestCommentTime='';
+  subs.forEach(function(_,i){
+    var r=rec[i];
+    if(r&&r.parentMsg&&r.parentMsgAt&&(!latestTime||r.parentMsgAt>latestTime)){latest=r.parentMsg;latestTime=r.parentMsgAt}
+    if(r&&r.comments&&r.comments.length){
+      var last=r.comments[r.comments.length-1];
+      if(!latestCommentTime||last.at>latestCommentTime){latestComment=last.text;latestCommentTime=last.at}
+    }
+  });
   var banner=document.getElementById('parent-banner');
-  if(latest){document.getElementById('parent-banner-msg').textContent=latest;banner.classList.add('show')}
-  else banner.classList.remove('show');
+  var show=latest||latestComment;
+  if(show){
+    var msg=latestComment?'💬 '+latestComment:latest;
+    document.getElementById('parent-banner-msg').textContent=msg;
+    banner.classList.add('show');
+  } else banner.classList.remove('show');
 }
 function switchPage(name){
   document.querySelectorAll('.page').forEach(function(p){p.classList.remove('active')});
@@ -598,9 +609,14 @@ document.getElementById('record-modal').addEventListener('click',function(e){if(
 function saveRecord(){
   var key=todayKey();if(!records[key])records[key]={};if(!records[key][currentIdx])records[key][currentIdx]={};
   var r=records[key][currentIdx];
-  r.note=document.getElementById('note-input').value;r.photos=modal.photos.slice();r.audios=modal.audios.slice();r.parentMsg=modal.parentMsg;r.done=true;r.savedAt=new Date().toISOString();
+  r.note=document.getElementById('note-input').value;
+  r.photos=modal.photos.slice();
+  r.audios=modal.audios.slice();
+  r.parentMsg=modal.parentMsg;r.done=true;r.savedAt=new Date().toISOString();
   saveLocal();
-  var upd={};upd[currentIdx+'']={note:r.note,done:true,parentMsg:r.parentMsg,savedAt:r.savedAt};
+  // 사진도 Firestore에 저장해서 부모와 공유
+  var upd={};
+  upd[currentIdx+'']={note:r.note,done:true,parentMsg:r.parentMsg,savedAt:r.savedAt,photos:r.photos||[]};
   cloudSave(key,upd);
   closeModal();renderTaskList();showToast('💾 저장되었습니다!');checkBadges();
 }
@@ -715,10 +731,32 @@ function showDayDetail(key,label){
   daySubs.forEach(function(s,i){
     var r=rec[i];if(!r)return;
     var item=document.createElement('div');item.className='day-detail-item';
-    var media='';
-    if(r.photos&&r.photos.length){media+='<div class="detail-media">';r.photos.forEach(function(src){media+='<img class="detail-photo" src="'+src+'" onclick="openImgViewer(\''+src.replace(/'/g,"\\'")+'\')">'});media+='</div>'}
-    if(r.audios&&r.audios.length){media+='<div class="detail-media">';r.audios.forEach(function(_,ai){media+='<div class="detail-audio-badge">🎵 음성 '+(ai+1)+'</div>'});media+='</div>'}
-    item.innerHTML='<div style="font-size:.95rem;flex-shrink:0">'+(r.done?'✅':'⭕')+'</div><div style="flex:1;min-width:0"><div class="detail-task-name">'+s+'</div>'+(r.note?'<div class="detail-task-note">'+r.note+'</div>':'')+(r.parentMsg?'<div class="detail-task-note" style="color:var(--accent)">'+r.parentMsg+'</div>':'')+media+'</div>';
+    var extra='';
+    // 사진
+    if(r.photos&&r.photos.length){
+      extra+='<div class="detail-media">';
+      r.photos.forEach(function(src){extra+='<img class="detail-photo" src="'+src+'" onclick="openImgViewer(this.src)" style="width:56px;height:56px;border-radius:8px;object-fit:cover;border:1.5px solid var(--border);cursor:pointer">'});
+      extra+='</div>';
+    }
+    // 음성
+    if(r.audios&&r.audios.length){
+      extra+='<div class="detail-media">';
+      r.audios.forEach(function(src,ai){extra+='<audio controls src="'+src+'" style="height:28px;max-width:180px"></audio>'});
+      extra+='</div>';
+    }
+    // 부모 댓글
+    if(r.comments&&r.comments.length){
+      extra+='<div style="margin-top:5px;display:flex;flex-direction:column;gap:3px">';
+      r.comments.forEach(function(c){
+        var ct=new Date(c.at);
+        extra+='<div style="background:var(--accent-light);border-radius:8px;padding:5px 8px;font-size:.75rem">';
+        extra+='<span style="font-weight:700;color:var(--accent)">💬 '+c.from+'</span> '+c.text;
+        extra+='<span style="font-size:.65rem;color:var(--text-dim);margin-left:5px">'+ct.getHours()+':'+String(ct.getMinutes()).padStart(2,'0')+'</span>';
+        extra+='</div>';
+      });
+      extra+='</div>';
+    }
+    item.innerHTML='<div style="font-size:.95rem;flex-shrink:0">'+(r.done?'✅':'⭕')+'</div><div style="flex:1;min-width:0"><div class="detail-task-name">'+s+'</div>'+(r.note?'<div class="detail-task-note">'+r.note+'</div>':'')+(r.parentMsg?'<div class="detail-task-note" style="color:var(--accent)">'+r.parentMsg+'</div>':'')+extra+'</div>';
     list.appendChild(item);
   });
   detail.scrollIntoView({behavior:'smooth',block:'nearest'});
@@ -744,7 +782,7 @@ function renderSubjectManage(){
   if(!subs.length){list.innerHTML='<div style="padding:14px;text-align:center;color:var(--text-dim);font-size:.83rem">'+label+' 과목을 추가해보세요</div>';return}
   subs.forEach(function(s,i){
     var item=document.createElement('div');item.className='subject-manage-item';item.id='subj-item-'+i;
-    item.innerHTML='<div class="subject-color-dot"></div><div class="subject-manage-name" id="subj-name-'+i+'">'+s+'</div><input id="subj-input-'+i+'" value="'+s+'" maxlength="12" style="display:none;flex:1;padding:4px 8px;border:1.5px solid var(--accent);border-radius:8px;font-family:\'Noto Sans KR\';font-size:.86rem;outline:none;background:var(--accent-light)" onkeydown="if(event.key===\'Enter\')saveSubjectEdit('+i+');if(event.key===\'Escape\')cancelSubjectEdit('+i+')"><button id="subj-edit-btn-'+i+'" class="subject-manage-edit" onclick="startSubjectEdit('+i+')">✏️</button><button id="subj-save-btn-'+i+'" class="subject-manage-save" onclick="saveSubjectEdit('+i+')" style="display:none">✅</button><button class="subject-manage-del" onclick="removeSubject('+i+')">🗑</button>';
+    item.innerHTML='<div class="subject-color-dot"></div><div class="subject-manage-name" id="subj-name-'+i+'">'+s+'</div><input id="subj-input-'+i+'" value="'+s+'" maxlength="12" style="display:none;flex:1;padding:4px 8px;border:1.5px solid var(--accent);border-radius:8px;font-size:.86rem;outline:none;background:var(--accent-light)" onkeydown="if(event.key===\'Enter\')saveSubjectEdit('+i+');if(event.key===\'Escape\')cancelSubjectEdit('+i+')"><button id="subj-edit-btn-'+i+'" class="subject-manage-edit" onclick="startSubjectEdit('+i+')">✏️</button><button id="subj-save-btn-'+i+'" class="subject-manage-save" onclick="saveSubjectEdit('+i+')" style="display:none">✅</button><button class="subject-manage-del" onclick="removeSubject('+i+')">🗑</button>';
     list.appendChild(item);
   });
 }
@@ -781,10 +819,37 @@ function renderParentTasks(key,rec){
     var card=document.createElement('div');card.className='parent-task-card'+(r.done?' done':'');
     var bodyHtml='';
     if(r.done){
+      // 메모
       if(r.note)bodyHtml+='<div class="parent-note">✏️ '+r.note+'</div>';
+      // 사진
+      if(r.photos&&r.photos.length){
+        bodyHtml+='<div class="parent-media">';
+        r.photos.forEach(function(src){
+          bodyHtml+='<img class="parent-photo" src="'+src+'" onclick="openImgViewer(this.src)" style="width:72px;height:72px;border-radius:10px;object-fit:cover;border:2px solid var(--border);cursor:pointer">';
+        });
+        bodyHtml+='</div>';
+      }
+      // 응원 버튼
       var msgs=['👍 확인 완료','💯 참 잘했어요','⭐ 최고야','❤️ 응원해'];
       bodyHtml+='<div class="parent-feedback-btns">'+msgs.map(function(m){return '<button class="parent-fb-btn'+(r.parentMsg===m?' sent':'')+'" onclick="sendParentFeedback(\''+key+'\','+i+',\''+m+'\',this)">'+m+(r.parentMsg===m?' ✓':'')+'</button>'}).join('')+'</div>';
       if(r.parentMsg&&r.parentMsgAt){var t=new Date(r.parentMsgAt);bodyHtml+='<div style="font-size:.7rem;color:var(--text-dim);margin-top:2px">'+t.getHours()+':'+String(t.getMinutes()).padStart(2,'0')+' 에 응원 전송됨</div>'}
+      // 댓글 입력
+      var comments=r.comments||[];
+      var commentsHtml='';
+      if(comments.length){
+        commentsHtml+='<div style="display:flex;flex-direction:column;gap:5px;margin-top:4px">';
+        comments.forEach(function(c){
+          var ct=new Date(c.at);
+          commentsHtml+='<div style="background:var(--accent-light);border-radius:10px;padding:7px 10px;font-size:.8rem">';
+          commentsHtml+='<span style="font-weight:700;color:var(--accent)">'+c.from+'</span> ';
+          commentsHtml+='<span style="color:var(--text)">'+c.text+'</span>';
+          commentsHtml+='<span style="font-size:.68rem;color:var(--text-dim);margin-left:6px">'+ct.getHours()+':'+String(ct.getMinutes()).padStart(2,'0')+'</span>';
+          commentsHtml+='</div>';
+        });
+        commentsHtml+='</div>';
+      }
+      bodyHtml+=commentsHtml;
+      bodyHtml+='<div style="display:flex;gap:6px;margin-top:6px"><input id="ci'+i+'" placeholder="댓글..." style="flex:1;padding:7px 11px;border:1.5px solid var(--border);border-radius:20px;font-size:.8rem;outline:none;background:var(--surface2)"><button data-key="'+key+'" data-idx="'+i+'" onclick="sendCommentBtn(this)" style="padding:7px 14px;background:var(--accent);color:white;border:none;border-radius:20px;font-size:.78rem;font-weight:600;cursor:pointer">전송</button></div>';
     }
     card.innerHTML='<div class="parent-task-top"><div style="font-size:1.1rem;flex-shrink:0">'+(r.done?'✅':'⭕')+'</div><div class="parent-task-info"><div class="parent-task-name">'+s+'</div><div class="parent-task-meta">'+(r.done?'완료':'미완료')+(r.savedAt?' · '+new Date(r.savedAt).getHours()+':'+String(new Date(r.savedAt).getMinutes()).padStart(2,'0'):'')+' </div></div></div>'+(bodyHtml?'<div class="parent-task-body">'+bodyHtml+'</div>':'');
     list.appendChild(card);
@@ -796,6 +861,19 @@ function sendParentFeedback(key,idx,msg,btn){
   btn.closest('.parent-feedback-btns').querySelectorAll('.parent-fb-btn').forEach(function(b){b.classList.remove('sent');b.textContent=b.textContent.replace(' ✓','')});
   btn.classList.add('sent');btn.textContent=msg+' ✓';
   showToast('💌 응원을 보냈어요!');
+}
+function sendCommentBtn(btn){
+  var key=btn.getAttribute('data-key'),idx=btn.getAttribute('data-idx');
+  var input=document.getElementById('ci'+idx);
+  var text=input.value.trim();if(!text)return;
+  var rec=records[key]||{},r=rec[idx]||{};
+  var comments=r.comments||[];
+  comments.push({from:'엄마/아빠',text:text,at:new Date().toISOString()});
+  var upd={};upd[idx+'.comments']=comments;
+  db.collection('records').doc(key).set(upd,{merge:true})
+    .then(function(){setSyncState('ok');showToast('💬 댓글을 보냈어요!')})
+    .catch(function(){setSyncState('error')});
+  input.value='';
 }
 
 // UTILS
