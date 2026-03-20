@@ -561,9 +561,23 @@ function switchPage(name){
   document.querySelectorAll('.nav-btn').forEach(function(b){b.classList.remove('active')});
   document.getElementById('page-'+name).classList.add('active');
   document.getElementById('nav-'+name).classList.add('active');
-  if(name==='history')renderCalendar();
-  if(name==='my')renderMyPage();
-  if(name==='report')renderReport();
+  if(name==='history') loadAllRecordsThenCalendar();
+  if(name==='my') renderMyPage();
+  if(name==='report') loadAllRecordsThenReport();
+}
+function loadAllRecordsThenCalendar(){
+  db.collection('records').get().then(function(snap){
+    snap.forEach(function(d){ records[d.id]=d.data(); });
+    saveLocal();
+    renderCalendar();
+  }).catch(function(){ renderCalendar(); });
+}
+function loadAllRecordsThenReport(){
+  db.collection('records').get().then(function(snap){
+    snap.forEach(function(d){ records[d.id]=d.data(); });
+    saveLocal();
+    renderReport();
+  }).catch(function(){ renderReport(); });
 }
 function renderTaskList(){
   var list=document.getElementById('task-list');if(!list)return;
