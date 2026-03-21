@@ -608,19 +608,18 @@ function renderTaskList(){
     var info=document.createElement('div');
     info.className='task-info';
     var nameEl=document.createElement('div');nameEl.className='task-name';
-    nameEl.style.cssText='display:flex;align-items:center;gap:6px';
+    nameEl.style.cssText='display:flex;align-items:center;gap:5px';
     var nameText=document.createElement('span');nameText.textContent=s;nameEl.appendChild(nameText);
-    // 부모 응원 이모지 - 이름 바로 옆에 표시
+    // 응원 이모지 하나만 표시
     if(done&&rec.parentMsg){
       var pmBadge=document.createElement('span');
-      pmBadge.style.cssText='font-size:.9rem;flex-shrink:0';
+      pmBadge.style.cssText='font-size:.85rem;flex-shrink:0';
       pmBadge.textContent=rec.parentMsg.split(' ')[0];
       nameEl.appendChild(pmBadge);
-    }
-    if(done&&rec.comments&&rec.comments.length){
+    } else if(done&&rec.comments&&rec.comments.length){
       var cmBadge=document.createElement('span');
-      cmBadge.style.cssText='font-size:.75rem;background:var(--accent-light);color:var(--accent);border-radius:20px;padding:1px 6px;font-weight:600;flex-shrink:0';
-      cmBadge.textContent='💬 '+rec.comments.length;
+      cmBadge.style.cssText='font-size:.7rem;background:var(--accent-light);color:var(--accent);border-radius:20px;padding:1px 7px;font-weight:600;flex-shrink:0';
+      cmBadge.textContent='💬';
       nameEl.appendChild(cmBadge);
     }
     var metaEl=document.createElement('div');metaEl.className='task-meta';metaEl.textContent=meta;
