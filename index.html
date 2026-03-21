@@ -578,8 +578,8 @@ function renderTaskList(){
     var rec=records[key][i]||{},done=!!rec.done;
     var hasMedia=(rec.photos&&rec.photos.length)||(rec.audios&&rec.audios.length);
     var meta=done?(hasMedia?'📷 기록 완료':'✅ 완료'):(hasMedia?'📷 사진/음성 있음':'탭하여 기록');
+    var hasDetail=done&&(rec.note||(rec.photos&&rec.photos.length)||(rec.audios&&rec.audios.length)||(rec.comments&&rec.comments.length)||rec.parentMsg);
 
-    // 카드 생성
     var card=document.createElement('div');
     card.className='task-card'+(done?' done':'');
     card.style.flexWrap='wrap';
@@ -593,6 +593,7 @@ function renderTaskList(){
     // 과목 정보
     var infoDiv=document.createElement('div');
     infoDiv.className='task-info';
+    infoDiv.style.cursor=hasDetail?'pointer':'default';
 
     var nameDiv=document.createElement('div');
     nameDiv.className='task-name';
@@ -600,15 +601,12 @@ function renderTaskList(){
 
     var metaDiv=document.createElement('div');
     metaDiv.className='task-meta';
-
-    // 상세 내용 (접힘)
-    var hasDetail=done&&(rec.note||(rec.photos&&rec.photos.length)||(rec.audios&&rec.audios.length)||(rec.comments&&rec.comments.length)||rec.parentMsg);
-    metaDiv.textContent=meta;
+    metaDiv.textContent=meta+(hasDetail?' ▾':'');
 
     infoDiv.appendChild(nameDiv);
     infoDiv.appendChild(metaDiv);
 
-    // 부모 응원/댓글 미리보기
+    // 부모 응원 미리보기
     if(done&&rec.parentMsg){
       var pmDiv=document.createElement('div');
       pmDiv.style.cssText='margin-top:3px;font-size:.72rem;color:var(--accent);font-weight:600';
@@ -633,10 +631,61 @@ function renderTaskList(){
     card.appendChild(infoDiv);
     card.appendChild(btn);
 
-    // 상세 내용 영역 (접힘/펼침)
-    // 카드 전체 탭하면 기록하기 모달 열기
-    infoDiv.style.cursor='pointer';
-    (function(idx){ infoDiv.onclick=function(){ openModal(idx); }; })(i);
+    // 상세 펼침 영역
+    if(hasDetail){
+      var detailDiv=document.createElement('div');
+      detailDiv.style.cssText='display:none;width:100%;padding:4px 14px 10px 50px';
+
+      if(rec.note){
+        var noteEl=document.createElement('div');
+        noteEl.style.cssText='font-size:.81rem;background:var(--surface3);border-radius:8px;padding:7px 10px;margin-bottom:6px';
+        noteEl.textContent='✏️ '+rec.note;
+        detailDiv.appendChild(noteEl);
+      }
+      if(rec.photos&&rec.photos.length){
+        var photoWrap=document.createElement('div');
+        photoWrap.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px';
+        rec.photos.forEach(function(src){
+          var img=document.createElement('img');
+          img.src=src;
+          img.style.cssText='width:72px;height:72px;border-radius:9px;object-fit:cover;border:1.5px solid var(--border);cursor:pointer';
+          img.onclick=function(){openImgViewer(this.src)};
+          photoWrap.appendChild(img);
+        });
+        detailDiv.appendChild(photoWrap);
+      }
+      if(rec.audios&&rec.audios.length){
+        rec.audios.forEach(function(src){
+          var audio=document.createElement('audio');
+          audio.controls=true;audio.src=src;
+          audio.style.cssText='width:100%;height:30px;margin-bottom:5px;display:block';
+          detailDiv.appendChild(audio);
+        });
+      }
+      if(rec.parentMsg){
+        var pmDetail=document.createElement('div');
+        pmDetail.style.cssText='font-size:.8rem;color:var(--accent);font-weight:600;margin-bottom:4px';
+        pmDetail.textContent='💌 '+rec.parentMsg;
+        detailDiv.appendChild(pmDetail);
+      }
+      if(rec.comments&&rec.comments.length){
+        rec.comments.forEach(function(c){
+          var ct=new Date(c.at);
+          var cDiv=document.createElement('div');
+          cDiv.style.cssText='background:var(--accent-light);border-radius:8px;padding:5px 9px;font-size:.76rem;margin-top:4px';
+          cDiv.innerHTML='<span style="font-weight:700;color:var(--accent)">💬 '+c.from+'</span> '+c.text+'<span style="font-size:.65rem;color:var(--text-dim);margin-left:5px">'+ct.getHours()+':'+String(ct.getMinutes()).padStart(2,'0')+'</span>';
+          detailDiv.appendChild(cDiv);
+        });
+      }
+
+      var isOpen=false;
+      infoDiv.onclick=function(){
+        isOpen=!isOpen;
+        detailDiv.style.display=isOpen?'block':'none';
+        metaDiv.textContent=meta+(isOpen?' ▴':' ▾');
+      };
+      card.appendChild(detailDiv);
+    }
 
     list.appendChild(card);
   });
