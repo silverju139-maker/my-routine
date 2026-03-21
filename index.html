@@ -410,16 +410,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
         <div class="voice-timer" id="voice-timer">00:00</div>
         <div class="audio-list" id="audio-list"></div>
       </div>
-      <div class="parent-msg-section">
-        <div class="field-label">💬 엄마/아빠 한마디</div>
-        <div class="parent-msg-grid">
-          <button class="parent-msg-btn" onclick="selectParentMsg(this,'👍 확인 완료')">👍 확인 완료</button>
-          <button class="parent-msg-btn" onclick="selectParentMsg(this,'💯 참 잘했어요')">💯 참 잘했어요</button>
-          <button class="parent-msg-btn" onclick="selectParentMsg(this,'⭐ 최고야')">⭐ 최고야</button>
-          <button class="parent-msg-btn" onclick="selectParentMsg(this,'❤️ 응원해')">❤️ 응원해</button>
-        </div>
-        <div class="selected-msg-display" id="selected-msg-display"></div>
-      </div>
+      <!-- 엄마/아빠 응원은 부모 화면에서만 -->
       <button class="save-btn" onclick="saveRecord()">저장하기 💾</button>
     </div>
   </div>
@@ -586,9 +577,18 @@ function renderTaskList(){
   todaySubjects().forEach(function(s,i){
     var rec=records[key][i]||{},done=!!rec.done;
     var hasMedia=(rec.photos&&rec.photos.length)||(rec.audios&&rec.audios.length);
-    var meta=done?(rec.parentMsg?'💌 '+rec.parentMsg:(hasMedia?'📷 기록 완료':'✅ 완료')):(hasMedia?'📷 사진/음성 있음':'탭하여 기록');
+    var meta=done?(hasMedia?'📷 기록 완료':'✅ 완료'):(hasMedia?'📷 사진/음성 있음':'탭하여 기록');
+    // 부모 응원 메시지 (별도 표시)
+    var parentMsgHtml='';
+    if(done&&rec.parentMsg) parentMsgHtml='<div style="margin-top:3px;font-size:.72rem;color:var(--accent);font-weight:600">💌 '+rec.parentMsg+'</div>';
+    // 부모 댓글 (최근 1개)
+    var commentHtml='';
+    if(done&&rec.comments&&rec.comments.length){
+      var last=rec.comments[rec.comments.length-1];
+      commentHtml='<div style="margin-top:3px;font-size:.72rem;color:var(--accent)">💬 '+last.text+'</div>';
+    }
     var card=document.createElement('div');card.className='task-card'+(done?' done':'');
-    card.innerHTML='<div class="task-check" onclick="toggleDone('+i+',event)"><svg width="12" height="12" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 13 4 10"/></svg></div><div class="task-info"><div class="task-name">'+s+'</div><div class="task-meta">'+meta+'</div></div><button class="task-record-btn" onclick="openModal('+i+')">기록하기</button>';
+    card.innerHTML='<div class="task-check" onclick="toggleDone('+i+',event)"><svg width="12" height="12" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 13 4 10"/></svg></div><div class="task-info"><div class="task-name">'+s+'</div><div class="task-meta">'+meta+'</div>'+parentMsgHtml+commentHtml+'</div><button class="task-record-btn" onclick="openModal('+i+')">기록하기</button>';
     list.appendChild(card);
   });
   updateProgress();
