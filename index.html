@@ -259,10 +259,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div class="sub-row"><span>오늘의 진행률</span><span id="progress-text" class="prog-text">0/0</span></div>
       <div class="prog-wrap"><div class="prog-outer"><div class="prog-inner" id="progress-bar"></div></div></div>
     </div>
-    <div class="parent-banner" id="parent-banner">
-      <span style="font-size:1.4rem">💌</span>
-      <div><div class="parent-banner-label">엄마/아빠의 한마디</div><div class="parent-banner-msg" id="parent-banner-msg"></div></div>
-    </div>
+
     <div class="task-list" id="task-list"></div>
   </div>
 
@@ -625,20 +622,7 @@ function renderTaskList(){
     var metaEl=document.createElement('div');metaEl.className='task-meta';metaEl.textContent=meta;
     info.appendChild(nameEl);info.appendChild(metaEl);
 
-    // 부모 응원 미리보기
-    if(done&&rec.parentMsg){
-      var pm=document.createElement('div');
-      pm.style.cssText='margin-top:3px;font-size:.72rem;color:var(--accent);font-weight:600';
-      pm.textContent='💌 '+rec.parentMsg;
-      info.appendChild(pm);
-    }
-    if(done&&rec.comments&&rec.comments.length){
-      var last=rec.comments[rec.comments.length-1];
-      var cm=document.createElement('div');
-      cm.style.cssText='margin-top:2px;font-size:.72rem;color:var(--accent)';
-      cm.textContent='💬 '+last.text;
-      info.appendChild(cm);
-    }
+
 
     // 기록하기 버튼
     var btn=document.createElement('button');
@@ -678,22 +662,7 @@ function renderTaskList(){
           detail.appendChild(audio);
         });
       }
-      if(rec.parentMsg){
-        var pmD=document.createElement('div');
-        pmD.className='task-detail-parent';
-        pmD.textContent='💌 '+rec.parentMsg;
-        detail.appendChild(pmD);
-      }
-      if(rec.comments&&rec.comments.length){
-        rec.comments.forEach(function(c){
-          var ct=new Date(c.at);
-          var cEl=document.createElement('div');
-          cEl.className='task-detail-comment';
-          cEl.innerHTML='<span style="font-weight:700;color:var(--accent)">💬 '+c.from+'</span> '+c.text+
-            '<span style="font-size:.65rem;color:var(--text-dim);margin-left:5px">'+ct.getHours()+':'+String(ct.getMinutes()).padStart(2,'0')+'</span>';
-          detail.appendChild(cEl);
-        });
-      }
+
 
       // 탭하면 상세 열기
       var isOpen=false;
