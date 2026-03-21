@@ -586,7 +586,8 @@ function renderTaskList(){
     var rec=records[key][i]||{};
     var done=!!rec.done;
     var hasMedia=(rec.photos&&rec.photos.length)||(rec.audios&&rec.audios.length);
-    var meta=done?(hasMedia?'📷 기록 완료':'✅ 완료 · 탭하여 확인'):(hasMedia?'📷 사진/음성 있음':'기록하기 버튼을 눌러주세요');
+    var parentEmoji=rec.parentMsg?rec.parentMsg.split(' ')[0]:'';
+    var meta=done?(hasMedia?'📷 기록 완료'+(parentEmoji?' · '+parentEmoji:''):'✅ 완료'+(parentEmoji?' · '+parentEmoji+' 응원받음':'')):(hasMedia?'📷 사진/음성 있음':'기록하기 버튼을 눌러주세요');
     var hasDetail=done&&(rec.note||(rec.photos&&rec.photos.length)||(rec.audios&&rec.audios.length)||(rec.comments&&rec.comments.length)||rec.parentMsg);
 
     // 카드
