@@ -625,7 +625,7 @@ function renderTaskList(){
     var btn=document.createElement('button');
     btn.className='task-record-btn';
     btn.textContent='기록하기';
-    btn.onclick=function(){openModal(i)};
+    btn.onclick=function(e){e.stopPropagation();openModal(i)};
 
     card.appendChild(checkDiv);
     card.appendChild(infoDiv);
