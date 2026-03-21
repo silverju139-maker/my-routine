@@ -890,7 +890,26 @@ function renderParentTasks(key,rec){
       bodyHtml+=commentsHtml;
       bodyHtml+='<div style="display:flex;gap:6px;margin-top:6px"><input id="ci'+i+'" placeholder="댓글..." style="flex:1;padding:7px 11px;border:1.5px solid var(--border);border-radius:20px;font-size:.8rem;outline:none;background:var(--surface2)"><button data-key="'+key+'" data-idx="'+i+'" onclick="sendCommentBtn(this)" style="padding:7px 14px;background:var(--accent);color:white;border:none;border-radius:20px;font-size:.78rem;font-weight:600;cursor:pointer">전송</button></div>';
     }
-    card.innerHTML='<div class="parent-task-top"><div style="font-size:1.1rem;flex-shrink:0">'+(r.done?'✅':'⭕')+'</div><div class="parent-task-info"><div class="parent-task-name">'+s+'</div><div class="parent-task-meta">'+(r.done?'완료':'미완료')+(r.savedAt?' · '+new Date(r.savedAt).getHours()+':'+String(new Date(r.savedAt).getMinutes()).padStart(2,'0'):'')+' </div></div></div>'+(bodyHtml?'<div class="parent-task-body">'+bodyHtml+'</div>':'');
+    var hasBody=!!(r.note||(r.photos&&r.photos.length)||(r.comments&&r.comments.length)||r.parentMsg);
+    var expanded=false;
+    var arrow=hasBody?'<div style="font-size:.75rem;color:var(--text-muted);margin-left:auto">▼</div>':'';
+    card.innerHTML='<div class="parent-task-top" style="cursor:'+(hasBody?'pointer':'default')+'">'
+      +'<div style="font-size:1.1rem;flex-shrink:0">'+(r.done?'✅':'⭕')+'</div>'
+      +'<div class="parent-task-info">'
+        +'<div class="parent-task-name">'+s+'</div>'
+        +'<div class="parent-task-meta">'+(r.done?'완료':'미완료')+(r.savedAt?' · '+new Date(r.savedAt).getHours()+':'+String(new Date(r.savedAt).getMinutes()).padStart(2,'0'):'')+' </div>'
+      +'</div>'
+      +arrow
+      +'</div>'
+      +'<div class="parent-task-body" id="ptb-'+i+'" style="display:none">'+bodyHtml+'</div>';
+    if(hasBody){
+      card.querySelector('.parent-task-top').addEventListener('click', function(){
+        expanded=!expanded;
+        document.getElementById('ptb-'+i).style.display=expanded?'flex':'none';
+        var arr=card.querySelector('.parent-task-top div:last-child');
+        if(arr)arr.textContent=expanded?'▲':'▼';
+      });
+    }
     list.appendChild(card);
   });
 }
