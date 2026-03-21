@@ -578,53 +578,112 @@ function renderTaskList(){
     var rec=records[key][i]||{},done=!!rec.done;
     var hasMedia=(rec.photos&&rec.photos.length)||(rec.audios&&rec.audios.length);
     var meta=done?(hasMedia?'📷 기록 완료':'✅ 완료'):(hasMedia?'📷 사진/음성 있음':'탭하여 기록');
-    // 부모 응원 메시지 (별도 표시)
-    var parentMsgHtml='';
-    if(done&&rec.parentMsg) parentMsgHtml='<div style="margin-top:3px;font-size:.72rem;color:var(--accent);font-weight:600">💌 '+rec.parentMsg+'</div>';
-    // 부모 댓글 (최근 1개)
-    var commentHtml='';
+
+    // 카드 생성
+    var card=document.createElement('div');
+    card.className='task-card'+(done?' done':'');
+    card.style.flexWrap='wrap';
+
+    // 체크버튼
+    var checkDiv=document.createElement('div');
+    checkDiv.className='task-check';
+    checkDiv.innerHTML='<svg width="12" height="12" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 13 4 10"/></svg>';
+    checkDiv.onclick=function(e){toggleDone(i,e)};
+
+    // 과목 정보
+    var infoDiv=document.createElement('div');
+    infoDiv.className='task-info';
+
+    var nameDiv=document.createElement('div');
+    nameDiv.className='task-name';
+    nameDiv.textContent=s;
+
+    var metaDiv=document.createElement('div');
+    metaDiv.className='task-meta';
+
+    // 상세 내용 (접힘)
+    var hasDetail=done&&(rec.note||(rec.photos&&rec.photos.length)||(rec.audios&&rec.audios.length)||(rec.comments&&rec.comments.length)||rec.parentMsg);
+    metaDiv.textContent=meta+(hasDetail?' ▾':'');
+
+    infoDiv.appendChild(nameDiv);
+    infoDiv.appendChild(metaDiv);
+
+    // 부모 응원/댓글 미리보기
+    if(done&&rec.parentMsg){
+      var pmDiv=document.createElement('div');
+      pmDiv.style.cssText='margin-top:3px;font-size:.72rem;color:var(--accent);font-weight:600';
+      pmDiv.textContent='💌 '+rec.parentMsg;
+      infoDiv.appendChild(pmDiv);
+    }
     if(done&&rec.comments&&rec.comments.length){
       var last=rec.comments[rec.comments.length-1];
-      commentHtml='<div style="margin-top:3px;font-size:.72rem;color:var(--accent)">💬 '+last.text+'</div>';
+      var cmDiv=document.createElement('div');
+      cmDiv.style.cssText='margin-top:2px;font-size:.72rem;color:var(--accent)';
+      cmDiv.textContent='💬 '+last.text;
+      infoDiv.appendChild(cmDiv);
     }
-    var card=document.createElement('div');card.className='task-card'+(done?' done':'');
-    var detailId='td-'+i;
-    var hasDetail=done&&(rec.note||(rec.photos&&rec.photos.length)||(rec.audios&&rec.audios.length)||(rec.comments&&rec.comments.length)||rec.parentMsg);
-    // 상세 내용 HTML
-    var detailHtml='';
-    if(done){
-      if(rec.note) detailHtml+='<div style="font-size:.8rem;color:var(--text);background:var(--surface3);border-radius:8px;padding:7px 10px;margin-top:6px">✏️ '+rec.note+'</div>';
+
+    // 기록하기 버튼
+    var btn=document.createElement('button');
+    btn.className='task-record-btn';
+    btn.textContent='기록하기';
+    btn.onclick=function(){openModal(i)};
+
+    card.appendChild(checkDiv);
+    card.appendChild(infoDiv);
+    card.appendChild(btn);
+
+    // 상세 내용 영역 (접힘/펼침)
+    if(hasDetail){
+      var detailDiv=document.createElement('div');
+      detailDiv.style.cssText='display:none;width:100%;padding:6px 14px 10px 50px';
+
+      if(rec.note){
+        var noteEl=document.createElement('div');
+        noteEl.style.cssText='font-size:.8rem;color:var(--text);background:var(--surface3);border-radius:8px;padding:7px 10px;margin-bottom:6px';
+        noteEl.textContent='✏️ '+rec.note;
+        detailDiv.appendChild(noteEl);
+      }
       if(rec.photos&&rec.photos.length){
-        detailHtml+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">';
-        rec.photos.forEach(function(src){detailHtml+='<img src="'+src+'" onclick="openImgViewer(this.src)" style="width:68px;height:68px;border-radius:9px;object-fit:cover;border:1.5px solid var(--border);cursor:pointer">'});
-        detailHtml+='</div>';
+        var photoWrap=document.createElement('div');
+        photoWrap.style.cssText='display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px';
+        rec.photos.forEach(function(src){
+          var img=document.createElement('img');
+          img.src=src;
+          img.style.cssText='width:68px;height:68px;border-radius:9px;object-fit:cover;border:1.5px solid var(--border);cursor:pointer';
+          img.onclick=function(){openImgViewer(this.src)};
+          photoWrap.appendChild(img);
+        });
+        detailDiv.appendChild(photoWrap);
       }
       if(rec.audios&&rec.audios.length){
-        rec.audios.forEach(function(src){detailHtml+='<audio controls src="'+src+'" style="width:100%;height:30px;margin-top:5px"></audio>'});
+        rec.audios.forEach(function(src){
+          var audio=document.createElement('audio');
+          audio.controls=true;audio.src=src;
+          audio.style.cssText='width:100%;height:30px;margin-bottom:4px';
+          detailDiv.appendChild(audio);
+        });
       }
-      if(rec.parentMsg) detailHtml+='<div style="margin-top:5px;font-size:.78rem;color:var(--accent);font-weight:600">💌 '+rec.parentMsg+'</div>';
       if(rec.comments&&rec.comments.length){
         rec.comments.forEach(function(c){
           var ct=new Date(c.at);
-          detailHtml+='<div style="margin-top:4px;background:var(--accent-light);border-radius:8px;padding:5px 9px;font-size:.76rem"><span style="font-weight:700;color:var(--accent)">💬 '+c.from+'</span> '+c.text+'<span style="font-size:.65rem;color:var(--text-dim);margin-left:5px">'+ct.getHours()+':'+String(ct.getMinutes()).padStart(2,'0')+'</span></div>';
+          var cDiv=document.createElement('div');
+          cDiv.style.cssText='background:var(--accent-light);border-radius:8px;padding:5px 9px;font-size:.76rem;margin-top:4px';
+          cDiv.innerHTML='<span style="font-weight:700;color:var(--accent)">💬 '+c.from+'</span> '+c.text+'<span style="font-size:.65rem;color:var(--text-dim);margin-left:5px">'+ct.getHours()+':'+String(ct.getMinutes()).padStart(2,'0')+'</span>';
+          detailDiv.appendChild(cDiv);
         });
       }
+
+      var open=false;
+      infoDiv.style.cursor='pointer';
+      infoDiv.onclick=function(){
+        open=!open;
+        detailDiv.style.display=open?'block':'none';
+        metaDiv.textContent=meta+(open?' ▴':' ▾');
+      };
+      card.appendChild(detailDiv);
     }
-    card.innerHTML='<div class="task-check" onclick="toggleDone('+i+',event)"><svg width="12" height="12" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 13 4 10"/></svg></div>'
-      +'<div class="task-info" style="cursor:'+(hasDetail?'pointer':'default')+'" onclick="'+(hasDetail?'toggleTaskDetail(''+detailId+'')':'')+'">'
-        +'<div class="task-name">'+s+'</div>'
-        +'<div class="task-meta">'+meta+(hasDetail?' ▾':'')+'</div>'
-        +parentMsgHtml+commentHtml
-      +'</div>'
-      +'<button class="task-record-btn" onclick="openModal('+i+')">기록하기</button>';
-    if(hasDetail){
-      var detailEl=document.createElement('div');
-      detailEl.id=detailId;
-      detailEl.style.cssText='display:none;padding:0 14px 10px 50px';
-      detailEl.innerHTML=detailHtml;
-      card.appendChild(detailEl);
-      card.style.flexWrap='wrap';
-    }
+
     list.appendChild(card);
   });
   updateProgress();
