@@ -1069,7 +1069,53 @@ function renderParentTasks(key,rec){
     list.appendChild(card);
   });
 }
-
+function renderChallengeParentSection(){
+  var key='challenge/main';
+  db.collection('challenge').doc('main').get().then(function(snap){
+    if(!snap.exists)return;
+    var data=snap.data(),days=data.days||{};
+    var today=new Date(),todayKey=today.getFullYear()+'-'+(today.getMonth()+1)+'-'+today.getDate();
+    var todayData=days[todayKey]||{};
+    if(!Object.keys(todayData).length)return;
+    var wrap=document.getElementById('parent-task-list');
+    var section=document.createElement('div');
+    section.style.cssText='background:linear-gradient(135deg,#ede9fe,#fce7f3);border:1.5px solid #7c3aed;border-radius:16px;overflow:hidden;margin-bottom:10px';
+    var header=document.createElement('div');
+    header.style.cssText='padding:12px 14px;background:rgba(124,58,237,.08);border-bottom:1px solid #e2ddf5;font-family:Gmarket Sans;font-size:.88rem;font-weight:700';
+    header.textContent='🎯 오늘 챌린지 인증';
+    section.appendChild(header);
+    Object.entries(todayData).forEach(function(e){
+      var subName=e[0],subData=e[1];
+      if(!subData.endPhoto&&!subData.startPhoto)return;
+      var row=document.createElement('div');
+      row.style.cssText='padding:10px 14px;border-bottom:1px solid #e2ddf5';
+      var nameRow=document.createElement('div');
+      nameRow.style.cssText='font-weight:700;font-size:.88rem;margin-bottom:6px;display:flex;align-items:center;justify-content:space-between';
+      var statusBadge=subData.approved?'<span style="background:#10b981;color:white;border-radius:20px;padding:2px 9px;font-size:.7rem;font-weight:600">✅ 승인됨</span>':subData.rejectMsg?'<span style="background:#ef4444;color:white;border-radius:20px;padding:2px 9px;font-size:.7rem;font-weight:600">🔄 다시인증</span>':'<span style="background:#f59e0b;color:white;border-radius:20px;padding:2px 9px;font-size:.7rem;font-weight:600">⏳ 대기중</span>';
+      nameRow.innerHTML='<span>📚 '+subName+'</span>'+statusBadge;
+      row.appendChild(nameRow);
+      if(subData.studyTime){var timeEl=document.createElement('div');timeEl.style.cssText='font-size:.75rem;color:#6b7280;margin-bottom:6px';timeEl.textContent='⏱️ 공부시간: '+Math.floor(subData.studyTime/60)+'분 '+String(subData.studyTime%60).padStart(2,'0')+'초';row.appendChild(timeEl)}
+      var photos=document.createElement('div');photos.style.cssText='display:flex;gap:6px;margin-bottom:8px';
+      if(subData.startPhoto){var s=document.createElement('div');s.style.cssText='flex:1;text-align:center';s.innerHTML='<div style="font-size:.7rem;color:#6b7280;margin-bottom:3px">시작사진</div><img src="'+subData.startPhoto+'" style="width:100%;height:80px;object-fit:cover;border-radius:9px;border:1.5px solid #e2ddf5;cursor:pointer" onclick="openImgViewer(this.src)">';photos.appendChild(s)}
+      if(subData.endPhoto){var en=document.createElement('div');en.style.cssText='flex:1;text-align:center';en.innerHTML='<div style="font-size:.7rem;color:#6b7280;margin-bottom:3px">완료사진</div><img src="'+subData.endPhoto+'" style="width:100%;height:80px;object-fit:cover;border-radius:9px;border:1.5px solid #e2ddf5;cursor:pointer" onclick="openImgViewer(this.src)">';photos.appendChild(en)}
+      row.appendChild(photos);
+      if(!subData.approved){
+        var btns=document.createElement('div');btns.style.cssText='display:flex;gap:6px';
+        var approveBtn=document.createElement('button');
+        approveBtn.style.cssText='flex:1;padding:8px;background:#10b981;color:white;border:none;border-radius:10px;font-size:.82rem;font-weight:700;cursor:pointer';
+        approveBtn.textContent='👍 승인';
+        (function(sn,rd,btn){approveBtn.onclick=function(){rd.approved=true;rd.approvedAt=new Date().toISOString();var upd={};var dayK=new Date().getFullYear()+'-'+(new Date().getMonth()+1)+'-'+new Date().getDate();upd['days.'+dayK+'.'+sn+'.approved']=true;upd['days.'+dayK+'.'+sn+'.approvedAt']=new Date().toISOString();db.collection('challenge').doc('main').update(upd).then(function(){showToast('✅ 승인완료!');renderChallengeParentSection()})}})(subName,subData,approveBtn);
+        var rejectBtn=document.createElement('button');
+        rejectBtn.style.cssText='flex:1;padding:8px;background:#ef4444;color:white;border:none;border-radius:10px;font-size:.82rem;font-weight:700;cursor:pointer';
+        rejectBtn.textContent='🔄 다시인증';
+        (function(sn){rejectBtn.onclick=function(){var upd={};var dayK=new Date().getFullYear()+'-'+(new Date().getMonth()+1)+'-'+new Date().getDate();upd['days.'+dayK+'.'+sn+'.rejectMsg']='다시 인증해주세요';db.collection('challenge').doc('main').update(upd).then(function(){showToast('🔄 다시인증 요청!');renderChallengeParentSection()})}})(subName);
+        btns.appendChild(approveBtn);btns.appendChild(rejectBtn);row.appendChild(btns);
+      }
+      section.appendChild(row);
+    });
+    wrap.insertBefore(section,wrap.firstChild);
+  });
+}
 function sendParentFeedback(key,idx,msg,btn,fbDiv,r){
   // 기존 해당 과목 데이터에 parentMsg 추가해서 전체 업데이트
   db.collection('records').doc(key).get().then(function(snap){
