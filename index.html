@@ -383,7 +383,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div style="background:linear-gradient(135deg,#ede9fe,#fce7f3);border:1.5px solid #7c3aed;border-radius:16px;overflow:hidden;margin-top:4px">
         <div style="padding:12px 14px;background:rgba(124,58,237,.08);border-bottom:1px solid #e2ddf5;font-family:'Gmarket Sans';font-size:.88rem;font-weight:700;display:flex;align-items:center;justify-content:space-between">
           <span>🎯 2주 챌린지 인증 확인</span>
-          <button onclick="location.href='challenge.html'" style="background:#7c3aed;color:white;border:none;border-radius:20px;padding:5px 12px;font-size:.75rem;font-weight:600;cursor:pointer">열기 →</button>
+          <button onclick="location.href='challenge.html?parent'" style="background:#7c3aed;color:white;border:none;border-radius:20px;padding:5px 12px;font-size:.75rem;font-weight:600;cursor:pointer">열기 →</button>
         </div>
         <div style="padding:12px 14px;font-size:.82rem;color:#6b7280;line-height:1.6">
           챌린지 탭에서 아이 인증 사진을 확인하고 승인해주세요!<br>
@@ -1052,7 +1052,7 @@ function renderChallengeParentSection(){
     section.style.cssText='background:linear-gradient(135deg,#ede9fe,#fce7f3);border:1.5px solid #7c3aed;border-radius:16px;overflow:hidden;margin-bottom:10px';
     var header = document.createElement('div');
     header.style.cssText='padding:12px 14px;background:rgba(124,58,237,.08);border-bottom:1px solid #e2ddf5;font-family:Gmarket Sans,sans-serif;font-size:.88rem;font-weight:700;display:flex;align-items:center;justify-content:space-between';
-    header.innerHTML='<span>🎯 오늘 챌린지 인증</span><button onclick="location.href=\'challenge.html\'" style="background:#7c3aed;color:white;border:none;border-radius:20px;padding:4px 11px;font-size:.72rem;font-weight:600;cursor:pointer">상세보기 →</button>';
+    header.innerHTML='<span>🎯 오늘 챌린지 인증</span><button onclick="location.href=\'challenge.html?parent\'" style="background:#7c3aed;color:white;border:none;border-radius:20px;padding:4px 11px;font-size:.72rem;font-weight:600;cursor:pointer">상세보기 →</button>';
     section.appendChild(header);
 
     todayEntries.forEach(function(entry){
