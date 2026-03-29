@@ -214,6 +214,10 @@ html,body{min-height:100vh;background:var(--bg);font-family:'Noto Sans KR',sans-
     </div>
   </div>
   <div class="settings-section">
+    <div class="settings-header">⏱️ 과목별 목표 공부시간</div>
+    <div class="settings-body" id="subject-goals-list" style="font-size:.84rem;color:var(--gray)">불러오는 중...</div>
+  </div>
+  <div class="settings-section">
     <div class="settings-header">📚 연동된 과목 (기존 앱 자동 연동)</div>
     <div class="settings-body" id="linked-subjects-list" style="font-size:.84rem;color:var(--gray)">불러오는 중...</div>
   </div>
@@ -421,18 +425,54 @@ function renderChild(){
   });
 }
 
+function getGoalSec(idx){
+  var goals=challengeData.subjectGoals||{};
+  return (goals[idx]||0)*60;
+}
+
 function startTick(idx,sec){
   if(timers[idx]) clearInterval(timers[idx]);
   var s=sec||0;
+  var goalSec=getGoalSec(idx);
+  var alerted=(goalSec>0&&s>=goalSec);
   timers[idx]=setInterval(function(){
     s++;
-    var el=document.getElementById('timer-'+idx);
-    if(el) el.textContent=fmtT(s);
     var k=dKey(), ck=k+'_'+idx;
     if(!challengeData.certData[ck]) challengeData.certData[ck]={};
     challengeData.certData[ck].elapsedSec=s;
+    var el=document.getElementById('timer-'+idx);
+    if(el){
+      var gs=getGoalSec(idx);
+      if(gs>0){
+        var rem=gs-s;
+        if(rem>0){ el.textContent=fmtT(rem)+' 남음'; el.style.color='#a855f7'; }
+        else { el.textContent='✅ '+fmtT(s); el.style.color='#a3e635'; }
+      } else {
+        el.textContent=fmtT(s); el.style.color='#a855f7';
+      }
+    }
+    if(goalSec>0&&s===goalSec&&!alerted){ alerted=true; fireGoalAlarm(idx); }
   },1000);
 }
+
+function fireGoalAlarm(idx){
+  var name=subjects[idx]||'과목';
+  showToast('🎉 '+name+' 목표시간 완료! 완료 사진을 찍어주세요 📸');
+  try{ if(navigator.vibrate) navigator.vibrate([300,100,300,100,500]); }catch(e){}
+  try{
+    var ctx=new(window.AudioContext||window.webkitAudioContext)();
+    [523,659,784,1047].forEach(function(f,i){
+      var o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.frequency.value=f;
+      g.gain.setValueAtTime(.3,ctx.currentTime+i*.2);
+      g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+i*.2+.3);
+      o.start(ctx.currentTime+i*.2);o.stop(ctx.currentTime+i*.2+.3);
+    });
+  }catch(e){}
+  setTimeout(function(){ openPM(idx,'end'); },1500);
+}
+
 function stopTick(idx){ if(timers[idx]){clearInterval(timers[idx]);delete timers[idx];} }
 
 function openPM(idx,type){
@@ -549,6 +589,23 @@ function renderSettings(){
   }
   document.getElementById('reward-100').value=challengeData.reward100||'';
   document.getElementById('reward-85').value=challengeData.reward85||'';
+  // 과목별 목표시간
+  var goalsEl=document.getElementById('subject-goals-list');
+  if(subjects.length){
+    var goals=challengeData.subjectGoals||{};
+    goalsEl.innerHTML=subjects.map(function(s,i){
+      return '<div style="padding:8px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px">'+
+        '<span style="flex:1;font-size:.84rem;font-weight:500">'+s+'</span>'+
+        '<input type="number" id="goal-'+i+'" value="'+(goals[i]||'')+'" min="1" max="300" placeholder="분" '+
+        'style="width:70px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:.84rem;outline:none;text-align:center">'+
+        '<span style="font-size:.78rem;color:var(--gray)">분</span>'+
+        '</div>';
+    }).join('')+
+    '<button onclick="saveGoals()" style="width:100%;margin-top:10px;padding:10px;border:none;border-radius:var(--radius-sm);background:var(--purple);color:white;font-family:Gmarket Sans,sans-serif;font-size:.88rem;font-weight:700;cursor:pointer">⏱️ 목표시간 저장</button>';
+  } else {
+    goalsEl.textContent='기존 앱에서 과목을 설정해주세요';
+  }
+  // 연동 과목
   var el=document.getElementById('linked-subjects-list');
   if(subjects.length){
     el.innerHTML=subjects.map(function(s){return '<div style="padding:5px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px"><span style="color:var(--purple)">●</span>'+s+'</div>';}).join('')+
@@ -556,6 +613,16 @@ function renderSettings(){
   } else {
     el.textContent='기존 앱에서 과목을 설정해주세요';
   }
+}
+
+function saveGoals(){
+  var goals={};
+  subjects.forEach(function(_,i){
+    var v=parseInt(document.getElementById('goal-'+i).value)||0;
+    if(v>0) goals[i]=v;
+  });
+  challengeData.subjectGoals=goals;
+  save(); showToast('⏱️ 목표시간 저장됐어요!');
 }
 
 function onStartChange(){ calcEndDate(document.getElementById('start-date').value); }
