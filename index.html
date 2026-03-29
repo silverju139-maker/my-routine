@@ -988,8 +988,9 @@ function initParentView(){
   document.getElementById('parent-app').style.display='block';
   document.title='👨‍👩‍👧 우리 아이 기록';
   setParentDateDisplay();subscribeParentRecord();
-  document.getElementById('parent-date-prev').onclick=function(){parentDate.setDate(parentDate.getDate()-1);setParentDateDisplay();subscribeParentRecord()};
-  document.getElementById('parent-date-next').onclick=function(){var t=new Date();t.setDate(t.getDate()+1);if(parentDate<t){parentDate.setDate(parentDate.getDate()+1);setParentDateDisplay();subscribeParentRecord()}};
+  renderChallengeParentSection(); // ← 이 줄 추가
+  document.getElementById('parent-date-prev').onclick=...
+  document.getElementById('parent-date-next').onclick=...
 }
 function setParentDateDisplay(){var days=['일','월','화','수','목','금','토'],d=parentDate,n=new Date(),isToday=dateKey(d)===dateKey(n);document.getElementById('parent-date-title').textContent=(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+days[d.getDay()]+')'+(isToday?' — 오늘':'')}
 function subscribeParentRecord(){if(parentUnsubRecord)parentUnsubRecord();parentUnsubRecord=db.collection('records').doc(dateKey(parentDate)).onSnapshot(function(snap){renderParentTasks(dateKey(parentDate),snap.exists?snap.data():{})})}
