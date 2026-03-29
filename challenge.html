@@ -158,12 +158,12 @@ html,body{min-height:100vh;background:var(--bg);font-family:'Noto Sans KR',sans-
     <button class="back-btn" onclick="history.back()">←</button>
     <div class="header-title">🎯 2주 챌린지</div>
   </div>
-  <div class="tabs">
-    <div class="tab active" id="tab-child" onclick="switchTab('child')">👧 아이</div>
-    <div class="tab" id="tab-parent" onclick="switchTab('parent')">👨‍👩‍👧 부모</div>
-    <div class="tab" id="tab-result" onclick="switchTab('result')">🏆 결과</div>
-    <div class="tab" id="tab-settings" onclick="switchTab('settings')">⚙️ 설정</div>
-  </div>
+<div class="tabs">
+  <div class="tab active" id="tab-child" onclick="switchTab('child')">👧 아이</div>
+  <div class="tab" id="tab-parent" onclick="switchTab('parent')" style="display:none">👨‍👩‍👧 부모</div>
+  <div class="tab" id="tab-result" onclick="switchTab('result')">🏆 결과</div>
+  <div class="tab" id="tab-settings" onclick="switchTab('settings')">⚙️ 설정</div>
+</div>
 </div>
 
 <div id="screen-child" class="content">
