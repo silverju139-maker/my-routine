@@ -278,6 +278,11 @@ function fmtT(s){ var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60; re
 function p2(n){ return String(n).padStart(2,'0'); }
 
 document.addEventListener('DOMContentLoaded', function(){
+  var isParent = location.search.includes('parent');
+  if(isParent){
+    document.getElementById('tab-parent').style.display = '';
+    switchTab('parent');
+  }
   db.collection('settings').doc('subjects').get()
     .then(function(snap){
       if(snap.exists) subjects = snap.data().weekday || [];
