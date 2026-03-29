@@ -5,22 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>🎯 2주 챌린지</title>
 <link href="https://fonts.googleapis.com/css2?family=Gmarket+Sans:wght@300;500;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
-<!-- Firebase 동기 로드 (defer/async 없이) -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-<script>
-// Firebase 즉시 초기화 - 페이지 로드 전에 실행
-var firebaseConfig = {
-  apiKey: "AIzaSyD8qlxN9Bv5VQUAc33ak-iMY20A9Hm1Jyc",
-  authDomain: "my-routine-6c65a.firebaseapp.com",
-  projectId: "my-routine-6c65a",
-  storageBucket: "my-routine-6c65a.firebasestorage.app",
-  messagingSenderId: "919928475674",
-  appId: "1:919928475674:web:7105269ecc5e192f4181a3"
-};
-if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
-var db = firebase.firestore();
-</script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{
@@ -158,12 +142,12 @@ html,body{min-height:100vh;background:var(--bg);font-family:'Noto Sans KR',sans-
     <button class="back-btn" onclick="history.back()">←</button>
     <div class="header-title">🎯 2주 챌린지</div>
   </div>
-<div class="tabs">
-  <div class="tab active" id="tab-child" onclick="switchTab('child')">👧 아이</div>
-  <div class="tab" id="tab-parent" onclick="switchTab('parent')" style="display:none">👨‍👩‍👧 부모</div>
-  <div class="tab" id="tab-result" onclick="switchTab('result')">🏆 결과</div>
-  <div class="tab" id="tab-settings" onclick="switchTab('settings')">⚙️ 설정</div>
-</div>
+  <div class="tabs">
+    <div class="tab active" id="tab-child" onclick="switchTab('child')">👧 아이</div>
+    <div class="tab" id="tab-parent" onclick="switchTab('parent')" style="display:none">👨‍👩‍👧 부모</div>
+    <div class="tab" id="tab-result" onclick="switchTab('result')">🏆 결과</div>
+    <div class="tab" id="tab-settings" onclick="switchTab('settings')">⚙️ 설정</div>
+  </div>
 </div>
 
 <div id="screen-child" class="content">
@@ -264,7 +248,20 @@ html,body{min-height:100vh;background:var(--bg);font-family:'Noto Sans KR',sans-
 </div>
 <div class="toast" id="toast"></div>
 
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script>
+var firebaseConfig = {
+  apiKey: "AIzaSyD8qlxN9Bv5VQUAc33ak-iMY20A9Hm1Jyc",
+  authDomain: "my-routine-6c65a.firebaseapp.com",
+  projectId: "my-routine-6c65a",
+  storageBucket: "my-routine-6c65a.firebasestorage.app",
+  messagingSenderId: "919928475674",
+  appId: "1:919928475674:web:7105269ecc5e192f4181a3"
+};
+if (!firebase.apps.length) { firebase.initializeApp(firebaseConfig); }
+var db = firebase.firestore();
+
 var subjects = [];
 var challengeData = {};
 var currentTab = 'child';
@@ -281,6 +278,8 @@ document.addEventListener('DOMContentLoaded', function(){
   var isParent = location.search.includes('parent');
   if(isParent){
     document.getElementById('tab-parent').style.display = '';
+    // 아이 탭 숨기기 (부모 화면에서는 아이 탭 불필요)
+    document.getElementById('tab-child').style.display = 'none';
     switchTab('parent');
   }
   db.collection('settings').doc('subjects').get()
@@ -320,7 +319,8 @@ function switchTab(t){
   currentTab=t;
   ['child','parent','result','settings'].forEach(function(x){
     document.getElementById('screen-'+x).style.display=x===t?'block':'none';
-    document.getElementById('tab-'+x).classList.toggle('active',x===t);
+    var tabEl = document.getElementById('tab-'+x);
+    if(tabEl) tabEl.classList.toggle('active',x===t);
   });
   renderCurrent();
 }
