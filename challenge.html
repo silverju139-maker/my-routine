@@ -419,8 +419,8 @@ function renderChild(){
         '<button class="cert-btn '+(hasS?'done-state':'start')+'" '+(hasS?'disabled':'')+' onclick="openPM('+i+',\'start\')">'+
           '<span class="cert-btn-icon">'+(hasS?'✅':'📸')+'</span><span class="cert-btn-lbl">'+(hasS?'시작완료':'시작 인증')+'</span></button>'+
         '<div class="timer-box '+(running?'running':'')+'" id="timer-'+i+'">'+fmtT(elapsed)+'</div>'+
-        '<button class="cert-btn end" '+(hasS?'':'disabled')+' onclick="openPM('+i+',\'end\')">'+
-          '<span class="cert-btn-icon">📸</span><span class="cert-btn-lbl">완료 인증</span></button>'+
+        '<button class="cert-btn end" '+(!hasS||(getGoalSec(i)>0&&elapsed<getGoalSec(i))?'disabled':'')+' onclick="openPM('+i+',\'end\')">'+
+          '<span class="cert-btn-icon">📸</span><span class="cert-btn-lbl">'+(getGoalSec(i)>0&&elapsed<getGoalSec(i)&&hasS?'시간 부족':'완료 인증')+'</span></button>'+
         '</div>';
     }
     card.innerHTML='<div class="subject-header"><span class="subject-name">'+s+'</span>'+statusHtml+'</div>'+bodyHtml;
@@ -480,6 +480,17 @@ function fireGoalAlarm(idx){
 function stopTick(idx){ if(timers[idx]){clearInterval(timers[idx]);delete timers[idx];} }
 
 function openPM(idx,type){
+  if(type==='end'){
+    var goalSec=getGoalSec(idx);
+    var k=dKey(), ck=k+'_'+idx;
+    var elapsed=(challengeData.certData&&challengeData.certData[ck]&&challengeData.certData[ck].elapsedSec)||0;
+    if(goalSec>0 && elapsed<goalSec){
+      var remain=goalSec-elapsed;
+      var m=Math.floor(remain/60), s=remain%60;
+      showToast('⏱️ 아직 '+m+'분 '+s+'초 남았어요! 조금만 더 해봐요 💪');
+      return;
+    }
+  }
   photoModal={subjIdx:idx,type:type,photoData:null};
   document.getElementById('modal-title').textContent=subjects[idx];
   document.getElementById('modal-sub').textContent=type==='start'?'📸 공부 시작 전 사진을 찍어주세요!':'✅ 공부 완료 후 사진을 찍어주세요!';
