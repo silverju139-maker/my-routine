@@ -283,7 +283,6 @@ document.addEventListener('DOMContentLoaded', function(){
   var isParent = location.search.includes('parent');
   if(isParent){
     document.getElementById('tab-parent').style.display = '';
-    // 아이 탭 숨기기 (부모 화면에서는 아이 탭 불필요)
     document.getElementById('tab-child').style.display = 'none';
     switchTab('parent');
   }
@@ -412,8 +411,8 @@ function renderChild(){
         '<div class="cert-photo-slot"><div class="cert-photo-inner has-photo"><img src="'+cert.endPhoto+'" onclick="openImg(this.src)"></div><div class="cert-photo-label done">완료 ✅</div></div>'+
         '</div>'+
         '<div style="display:flex;gap:6px;padding:0 14px 12px">'+
-          '<button onclick="editCert('+i+','start')" style="flex:1;padding:8px;background:#f0edff;color:#7c3aed;border:1.5px solid #e2ddf5;border-radius:10px;font-size:.75rem;font-weight:700;cursor:pointer">✏️ 시작사진 수정</button>'+
-          '<button onclick="editCert('+i+','end')" style="flex:1;padding:8px;background:#f0fdf4;color:#166534;border:1.5px solid #86efac;border-radius:10px;font-size:.75rem;font-weight:700;cursor:pointer">✏️ 완료사진 수정</button>'+
+          '<button onclick="editCert('+i+',\'start\')" style="flex:1;padding:8px;background:#f0edff;color:#7c3aed;border:1.5px solid #e2ddf5;border-radius:10px;font-size:.75rem;font-weight:700;cursor:pointer">✏️ 시작사진 수정</button>'+
+          '<button onclick="editCert('+i+',\'end\')" style="flex:1;padding:8px;background:#f0fdf4;color:#166534;border:1.5px solid #86efac;border-radius:10px;font-size:.75rem;font-weight:700;cursor:pointer">✏️ 완료사진 수정</button>'+
         '</div>';
     } else {
       bodyHtml='<div class="subject-cert-row">'+
@@ -491,7 +490,6 @@ function openPM(idx,type){
   document.body.style.overflow='hidden';
 }
 function editCert(idx, type){
-  // 수정 모드 — 기존 사진 지우고 다시 찍기
   var k=dKey(), ck=k+'_'+idx;
   if(!challengeData.certData) challengeData.certData={};
   if(!challengeData.certData[ck]) challengeData.certData[ck]={};
@@ -612,7 +610,6 @@ function renderSettings(){
   }
   document.getElementById('reward-100').value=challengeData.reward100||'';
   document.getElementById('reward-85').value=challengeData.reward85||'';
-  // 과목별 목표시간
   var goalsEl=document.getElementById('subject-goals-list');
   if(subjects.length){
     var goals=challengeData.subjectGoals||{};
@@ -628,7 +625,6 @@ function renderSettings(){
   } else {
     goalsEl.textContent='기존 앱에서 과목을 설정해주세요';
   }
-  // 연동 과목
   var el=document.getElementById('linked-subjects-list');
   if(subjects.length){
     el.innerHTML=subjects.map(function(s){return '<div style="padding:5px 0;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px"><span style="color:var(--purple)">●</span>'+s+'</div>';}).join('')+
