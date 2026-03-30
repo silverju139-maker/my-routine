@@ -532,7 +532,7 @@ function renderParent(){
     var card=document.createElement('div');
     card.className='parent-cert-card'+(cert.approved?' approved-card':'');
     var btns=cert.approved
-      ?'<button class="pcc-btn approved">✅ 승인 완료</button>'
+      ?'<button class="pcc-btn approved">✅ 승인 완료</button><button class="pcc-btn" onclick="cancelApprove(\''+k+'_'+i+'\')" style="background:#fff3cd;color:#b45309;border:1.5px solid #fde68a">↩️ 승인 취소</button>'
       :'<button class="pcc-btn approve" onclick="approveS(\''+k+'_'+i+'\')">👍 승인</button><button class="pcc-btn retry" onclick="retryS(\''+k+'_'+i+'\')">🔄 다시 인증</button>';
     card.innerHTML=
       '<div class="pcc-header"><span class="pcc-name">'+s+'</span><span class="pcc-time">'+(elapsed>0?mins+'분 공부':'인증됨')+'</span></div>'+
@@ -551,6 +551,11 @@ function approveS(ck){
   if(!challengeData.certData[ck]) challengeData.certData[ck]={};
   challengeData.certData[ck].approved=true;
   save(); showToast('👍 승인했어요!'); renderParent();
+}
+function cancelApprove(ck){
+  if(!challengeData.certData[ck]) return;
+  challengeData.certData[ck].approved=false;
+  save(); showToast('↩️ 승인 취소됐어요!'); renderParent();
 }
 function retryS(ck){
   delete challengeData.certData[ck];
