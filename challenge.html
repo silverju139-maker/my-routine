@@ -609,12 +609,18 @@ function cancelApprove(ck){
 }
 function retryS(ck){
   delete challengeData.certData[ck];
-  save(); showToast('🔄 다시 인증 요청'); renderParent();
+  var updateObj = {};
+  updateObj['certData.'+ck] = firebase.firestore.FieldValue.delete();
+  db.collection('challenge').doc('main').update(updateObj);
+  showToast('🔄 다시 인증 요청'); renderParent();
 }
 function deleteS(ck){
   if(!confirm('이 인증을 삭제할까요?')) return;
   delete challengeData.certData[ck];
-  save(); showToast('🗑️ 인증이 삭제됐어요'); renderParent();
+  var updateObj = {};
+  updateObj['certData.'+ck] = firebase.firestore.FieldValue.delete();
+  db.collection('challenge').doc('main').update(updateObj);
+  showToast('🗑️ 인증이 삭제됐어요'); renderParent();
 }
 
 function renderResult(){
