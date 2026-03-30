@@ -399,6 +399,7 @@ function renderChild(){
   subjects.forEach(function(s,i){
     var cert=(challengeData.certData||{})[k+'_'+i]||{};
     var hasS=!!cert.startPhoto, hasBoth=hasS&&!!cert.endPhoto, running=hasS&&!hasBoth;
+    var paused=cert.paused||false;
     var elapsed=cert.elapsedSec||0;
     var card=document.createElement('div');
     card.className='subject-card'+(hasBoth?' cert-done':'');
@@ -418,14 +419,17 @@ function renderChild(){
       bodyHtml='<div class="subject-cert-row">'+
         '<button class="cert-btn '+(hasS?'done-state':'start')+'" '+(hasS?'disabled':'')+' onclick="openPM('+i+',\'start\')">'+
           '<span class="cert-btn-icon">'+(hasS?'✅':'📸')+'</span><span class="cert-btn-lbl">'+(hasS?'시작완료':'시작 인증')+'</span></button>'+
-        '<div class="timer-box '+(running?'running':'')+'" id="timer-'+i+'">'+fmtT(elapsed)+'</div>'+
-        '<button class="cert-btn end" '+(!hasS||(getGoalSec(i)>0&&elapsed<getGoalSec(i))?'disabled':'')+' onclick="openPM('+i+',\'end\')">'+
-          '<span class="cert-btn-icon">📸</span><span class="cert-btn-lbl">'+(getGoalSec(i)>0&&elapsed<getGoalSec(i)&&hasS?'시간 부족':'완료 인증')+'</span></button>'+
+        '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">'+
+          '<div class="timer-box '+(running&&!paused?'running':'')+'" id="timer-'+i+'">'+fmtT(elapsed)+'</div>'+
+          (running?'<button onclick="togglePause('+i+')" style="font-size:.65rem;padding:3px 8px;border:1.5px solid var(--border);border-radius:99px;background:'+(paused?'#dcfce7':'#fee2e2')+';color:'+(paused?'#166534':'#991b1b')+';cursor:pointer;font-weight:700">'+(paused?'▶ 재시작':'⏸ 일시정지')+'</button>':'')+
+        '</div>'+
+        '<button class="cert-btn end" '+(!hasS||paused||(getGoalSec(i)>0&&elapsed<getGoalSec(i))?'disabled':'')+' onclick="openPM('+i+',\'end\')">'+
+          '<span class="cert-btn-icon">📸</span><span class="cert-btn-lbl">'+(paused?'일시정지중':(getGoalSec(i)>0&&elapsed<getGoalSec(i)&&hasS?'시간 부족':'완료 인증'))+'</span></button>'+
         '</div>';
     }
     card.innerHTML='<div class="subject-header"><span class="subject-name">'+s+'</span>'+statusHtml+'</div>'+bodyHtml;
     list.appendChild(card);
-    if(running) startTick(i,elapsed);
+    if(running && !paused) startTick(i,elapsed);
   });
 }
 
@@ -478,6 +482,22 @@ function fireGoalAlarm(idx){
 }
 
 function stopTick(idx){ if(timers[idx]){clearInterval(timers[idx]);delete timers[idx];} }
+
+function togglePause(idx){
+  var k=dKey(), ck=k+'_'+idx;
+  if(!challengeData.certData[ck]) return;
+  var paused=challengeData.certData[ck].paused||false;
+  if(paused){
+    challengeData.certData[ck].paused=false;
+    startTick(idx, challengeData.certData[ck].elapsedSec||0);
+    showToast('▶ 타이머 재시작!');
+  } else {
+    stopTick(idx);
+    challengeData.certData[ck].paused=true;
+    showToast('⏸ 타이머 일시정지');
+  }
+  save(); renderChild();
+}
 
 function openPM(idx,type){
   if(type==='end'){
@@ -536,6 +556,7 @@ function confirmPhoto(){
     challengeData.certData[ck].startPhoto=photoModal.photoData;
     challengeData.certData[ck].startTime=new Date().toISOString();
     challengeData.certData[ck].elapsedSec=0;
+    challengeData.certData[ck].paused=false;
     startTick(photoModal.subjIdx,0);
     showToast('시작 인증 완료! 타이머 시작 ⏱️');
   } else {
