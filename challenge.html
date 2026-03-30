@@ -398,12 +398,14 @@ function renderChild(){
   var k=dKey();
   subjects.forEach(function(s,i){
     var cert=(challengeData.certData||{})[k+'_'+i]||{};
-    var hasS=!!cert.startPhoto, hasBoth=hasS&&!!cert.endPhoto, running=hasS&&!hasBoth;
+    var hasS=!!cert.startPhoto, hasBoth=hasS&&!!cert.endPhoto;
     var paused=cert.paused||false;
+    var inProgress=hasS&&!hasBoth;
+    var running=inProgress&&!paused;
     var elapsed=cert.elapsedSec||0;
     var card=document.createElement('div');
     card.className='subject-card'+(hasBoth?' cert-done':'');
-    var statusHtml=hasBoth?'<span class="subject-status done">인증 완료 ⭐</span>':running?'<span class="subject-status running">진행중 ⏱️</span>':'<span class="subject-status">미인증</span>';
+    var statusHtml=hasBoth?'<span class="subject-status done">인증 완료 ⭐</span>':paused?'<span class="subject-status" style="color:#b45309">일시정지 ⏸</span>':inProgress?'<span class="subject-status running">진행중 ⏱️</span>':'<span class="subject-status">미인증</span>';
     var bodyHtml='';
     if(hasBoth){
       bodyHtml='<div class="cert-photos">'+
@@ -421,7 +423,7 @@ function renderChild(){
           '<span class="cert-btn-icon">'+(hasS?'✅':'📸')+'</span><span class="cert-btn-lbl">'+(hasS?'시작완료':'시작 인증')+'</span></button>'+
         '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">'+
           '<div class="timer-box '+(running&&!paused?'running':'')+'" id="timer-'+i+'">'+fmtT(elapsed)+'</div>'+
-          (running?'<button onclick="togglePause('+i+')" style="font-size:.65rem;padding:3px 8px;border:1.5px solid var(--border);border-radius:99px;background:'+(paused?'#dcfce7':'#fee2e2')+';color:'+(paused?'#166534':'#991b1b')+';cursor:pointer;font-weight:700">'+(paused?'▶ 재시작':'⏸ 일시정지')+'</button>':'')+
+          (inProgress?'<button onclick="togglePause('+i+')" style="font-size:.65rem;padding:3px 8px;border:1.5px solid var(--border);border-radius:99px;background:'+(paused?'#dcfce7':'#fee2e2')+';color:'+(paused?'#166534':'#991b1b')+';cursor:pointer;font-weight:700">'+(paused?'▶ 재시작':'⏸ 일시정지')+'</button>':'')+
         '</div>'+
         '<button class="cert-btn end" '+(!hasS||paused||(getGoalSec(i)>0&&elapsed<getGoalSec(i))?'disabled':'')+' onclick="openPM('+i+',\'end\')">'+
           '<span class="cert-btn-icon">📸</span><span class="cert-btn-lbl">'+(paused?'일시정지중':(getGoalSec(i)>0&&elapsed<getGoalSec(i)&&hasS?'시간 부족':'완료 인증'))+'</span></button>'+
