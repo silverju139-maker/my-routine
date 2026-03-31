@@ -378,6 +378,11 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div class="parent-prog-label"><span>오늘 진행률</span><span id="parent-prog-text">0/0</span></div>
       <div class="parent-prog-outer"><div class="parent-prog-inner" id="parent-prog-bar" style="width:0%"></div></div>
     </div>
+    <div style="padding:0 16px 8px">
+      <button onclick="location.href='challenge.html?parent'" style="width:100%;padding:12px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;border:none;border-radius:14px;font-family:'Gmarket Sans',sans-serif;font-size:.88rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+        🎯 2주 챌린지 확인하기 →
+      </button>
+    </div>
     <!-- ▼ 챌린지 인증 섹션이 JS로 여기 맨 앞에 삽입됩니다 -->
     <div id="parent-task-list" class="parent-task-list"></div>
   </div>
@@ -969,6 +974,10 @@ function clearAllData(){if(!confirm('모든 기록을 초기화할까요?'))retu
 function initParentView(){
   document.getElementById('parent-app').style.display='block';
   document.title='👨‍👩‍👧 우리 아이 기록';
+  // 브라우저 알림 권한 요청
+  if('Notification' in window && Notification.permission==='default'){
+    Notification.requestPermission();
+  }
   setParentDateDisplay();
   subscribeParentRecord();
   document.getElementById('parent-date-prev').onclick=function(){
@@ -1000,9 +1009,21 @@ function subscribeParentRecord(){
   });
 }
 
+var prevDoneCount = {};
 function renderParentTasks(key,rec){
   var d=parentDate,subs=(d.getDay()===0||d.getDay()===6)?weekendSubjects:weekdaySubjects,total=subs.length;
   var done=subs.filter(function(_,i){return rec[i]&&rec[i].done}).length;
+  // 새로 완료된 과목 알림
+  var prevCount = prevDoneCount[key]||0;
+  if(done > prevCount && prevCount >= 0 && 'Notification' in window && Notification.permission==='granted'){
+    var newlyDone = subs.filter(function(_,i){return rec[i]&&rec[i].done}).slice(prevCount);
+    new Notification('📚 학습 완료!', {
+      body: done+'/'+ total+' 완료했어요! 잘하고 있어요 👍',
+      icon: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f4da.png',
+      tag: 'study-done'
+    });
+  }
+  prevDoneCount[key] = done;
   document.getElementById('parent-prog-text').textContent=done+' / '+total;
   document.getElementById('parent-prog-bar').style.width=total?(done/total*100)+'%':'0%';
   var list=document.getElementById('parent-task-list');
