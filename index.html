@@ -399,12 +399,12 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div class="modal-body">
       <div>
         <div class="field-label">📷 사진 첨부</div>
-        <label class="photo-upload-zone" for="photo-input" style="display:block;cursor:pointer">
-          <input type="file" id="photo-input" accept="image/*" multiple onchange="handlePhotoUpload(this)" style="display:none">
+        <div class="photo-upload-zone" onclick="document.getElementById('photo-input').click()" style="cursor:pointer">
+          <input type="file" id="photo-input" accept="image/*" multiple onchange="handlePhotoUpload(this)" style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px">
           <div style="font-size:1.8rem;margin-bottom:4px">📸</div>
           <div style="color:var(--accent);font-weight:600;font-size:.88rem">사진 추가하기</div>
           <div style="color:var(--text-muted);font-size:.73rem;margin-top:2px">여러 장 · 카메라 가능</div>
-        </label>
+        </div>
         <div class="photo-preview-grid" id="photo-preview"></div>
       </div>
       <div>
@@ -420,8 +420,9 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
         <div class="audio-list" id="audio-list"></div>
       </div>
     </div>
-    <div style="padding:0 20px 20px;position:relative;z-index:10">
-      <button class="save-btn" onclick="saveRecord()" style="position:relative;z-index:10">저장하기 💾</button>
+    <div style="padding:0 20px 20px;display:flex;flex-direction:column;gap:8px">
+      <button class="save-btn" onclick="saveRecord()">저장하기 💾</button>
+      <button id="modal-delete-btn" onclick="deleteRecord()" style="display:none;width:100%;padding:11px;border:1.5px solid var(--accent5);border-radius:var(--radius);background:white;color:var(--accent5);font-size:.85rem;font-weight:600;cursor:pointer">🗑 이 기록 삭제</button>
     </div>
   </div>
 </div>
@@ -739,11 +740,27 @@ function openModal(idx){
   document.getElementById('modal-subject-title').textContent=todaySubjects()[idx];
   document.getElementById('note-input').value=rec.note||'';
   renderPhotoPreview();renderAudioList();
+  // 기존 기록 있으면 삭제 버튼 표시
+  var delBtn=document.getElementById('modal-delete-btn');
+  if(delBtn) delBtn.style.display=rec.done||rec.note||( rec.photos&&rec.photos.length)?'block':'none';
   document.getElementById('record-modal').classList.add('open');
   document.body.style.overflow='hidden';
 }
 function closeModal(){stopRecording();document.getElementById('record-modal').classList.remove('open');document.body.style.overflow=''}
 document.getElementById('record-modal').addEventListener('click',function(e){if(e.target===this)closeModal()});
+
+function deleteRecord(){
+  if(!confirm('이 과목 기록을 삭제할까요?'))return;
+  var key=todayKey();
+  if(records[key]&&records[key][currentIdx]){
+    delete records[key][currentIdx];
+    saveLocal();
+    var upd={};
+    upd[currentIdx+'']=firebase.firestore.FieldValue.delete();
+    db.collection('records').doc(key).update(upd);
+    closeModal();renderTaskList();showToast('🗑 기록 삭제됨');
+  }
+}
 
 function saveRecord(){
   var key=todayKey();
