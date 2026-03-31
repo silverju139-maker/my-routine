@@ -378,19 +378,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
       <div class="parent-prog-label"><span>오늘 진행률</span><span id="parent-prog-text">0/0</span></div>
       <div class="parent-prog-outer"><div class="parent-prog-inner" id="parent-prog-bar" style="width:0%"></div></div>
     </div>
+    <!-- ▼ 챌린지 인증 섹션이 JS로 여기 맨 앞에 삽입됩니다 -->
     <div id="parent-task-list" class="parent-task-list"></div>
-    <div style="padding:0 16px 16px">
-      <div style="background:linear-gradient(135deg,#ede9fe,#fce7f3);border:1.5px solid #7c3aed;border-radius:16px;overflow:hidden;margin-top:4px">
-        <div style="padding:12px 14px;background:rgba(124,58,237,.08);border-bottom:1px solid #e2ddf5;font-family:'Gmarket Sans';font-size:.88rem;font-weight:700;display:flex;align-items:center;justify-content:space-between">
-          <span>🎯 2주 챌린지 인증 확인</span>
-          <button onclick="location.href='challenge.html?parent'" style="background:#7c3aed;color:white;border:none;border-radius:20px;padding:5px 12px;font-size:.75rem;font-weight:600;cursor:pointer">열기 →</button>
-        </div>
-        <div style="padding:12px 14px;font-size:.82rem;color:#6b7280;line-height:1.6">
-          챌린지 탭에서 아이 인증 사진을 확인하고 승인해주세요!<br>
-          <span style="color:#7c3aed;font-weight:600">👨‍👩‍👧 부모 탭</span>에서 승인/다시인증 가능해요.
-        </div>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -593,6 +582,8 @@ function renderTaskList(){
 
     var top=document.createElement('div');
     top.className='task-card-top';
+    // 카드 top 영역 클릭이 체크박스 토글로 버블링되는 것 방지
+    top.addEventListener('click',function(e){e.stopPropagation();});
 
     var chk=document.createElement('div');
     chk.className='task-check';
@@ -713,20 +704,31 @@ function saveRecord(){
   var r=records[key][currentIdx];
   r.note=document.getElementById('note-input').value;
   r.photos=modal.photos.slice();r.audios=modal.audios.slice();
-  r.done=true;r.savedAt=new Date().toISOString();
+  // done은 체크박스로만 변경, 기록하기 저장 시엔 기존 done 상태 유지
+  r.savedAt=new Date().toISOString();
   saveLocal();
-  var upd={};upd[currentIdx+'']={note:r.note,done:true,savedAt:r.savedAt,photos:r.photos,audios:r.audios};
+  var upd={};upd[currentIdx+'']={note:r.note,done:r.done||false,savedAt:r.savedAt,photos:r.photos,audios:r.audios};
   cloudSave(key,upd);
   closeModal();renderTaskList();showToast('💾 저장되었습니다!');checkBadges();
 }
 
 function handlePhotoUpload(input){
-  Array.from(input.files).forEach(function(file){
+  var files=Array.from(input.files);
+  if(!files.length) return;
+  var loaded=0;
+  files.forEach(function(file){
     var reader=new FileReader();
-    reader.onload=function(e){modal.photos.push(e.target.result);renderPhotoPreview()};
+    reader.onload=function(e){
+      modal.photos.push(e.target.result);
+      loaded++;
+      // 모든 파일 읽은 후에 input 초기화 (갤럭시에서 파일 참조 끊김 방지)
+      if(loaded===files.length){
+        try{input.value='';}catch(ex){}
+      }
+      renderPhotoPreview();
+    };
     reader.readAsDataURL(file);
   });
-  input.value='';
 }
 function renderPhotoPreview(){
   var grid=document.getElementById('photo-preview');grid.innerHTML='';
@@ -949,16 +951,17 @@ function initParentView(){
   document.title='👨‍👩‍👧 우리 아이 기록';
   setParentDateDisplay();
   subscribeParentRecord();
-  renderChallengeParentSection();
   document.getElementById('parent-date-prev').onclick=function(){
     parentDate.setDate(parentDate.getDate()-1);
     setParentDateDisplay();
     subscribeParentRecord();
+    renderChallengeParentSection();
   };
   document.getElementById('parent-date-next').onclick=function(){
     parentDate.setDate(parentDate.getDate()+1);
     setParentDateDisplay();
     subscribeParentRecord();
+    renderChallengeParentSection();
   };
 }
 
@@ -972,6 +975,8 @@ function subscribeParentRecord(){
   if(parentUnsubRecord)parentUnsubRecord();
   parentUnsubRecord=db.collection('records').doc(dateKey(parentDate)).onSnapshot(function(snap){
     renderParentTasks(dateKey(parentDate),snap.exists?snap.data():{});
+    // 일반 과목 렌더 완료 후 챌린지 섹션 삽입
+    renderChallengeParentSection();
   });
 }
 
@@ -1038,6 +1043,10 @@ function renderParentTasks(key,rec){
 
 function renderChallengeParentSection(){
   var todayStr = dateKey(parentDate);
+  // 기존에 삽입된 챌린지 섹션 제거 (중복 방지)
+  var existing = document.getElementById('challenge-parent-section');
+  if(existing) existing.remove();
+
   db.collection('challenge').doc('main').get().then(function(snap){
     if(!snap.exists) return;
     var data = snap.data(), certData = data.certData||{};
@@ -1049,7 +1058,9 @@ function renderChallengeParentSection(){
     var subs = isWeekend(parentDate) ? weekendSubjects : weekdaySubjects;
     var list = document.getElementById('parent-task-list');
     var section = document.createElement('div');
+    section.id = 'challenge-parent-section'; // ID 부여 → 중복 삽입 방지
     section.style.cssText='background:linear-gradient(135deg,#ede9fe,#fce7f3);border:1.5px solid #7c3aed;border-radius:16px;overflow:hidden;margin-bottom:10px';
+
     var header = document.createElement('div');
     header.style.cssText='padding:12px 14px;background:rgba(124,58,237,.08);border-bottom:1px solid #e2ddf5;font-family:Gmarket Sans,sans-serif;font-size:.88rem;font-weight:700;display:flex;align-items:center;justify-content:space-between';
     header.innerHTML='<span>🎯 오늘 챌린지 인증</span><button onclick="location.href=\'challenge.html?parent\'" style="background:#7c3aed;color:white;border:none;border-radius:20px;padding:4px 11px;font-size:.72rem;font-weight:600;cursor:pointer">상세보기 →</button>';
@@ -1086,8 +1097,18 @@ function renderChallengeParentSection(){
 
       var photos = document.createElement('div');
       photos.style.cssText='display:flex;gap:8px;margin-bottom:8px';
-      if(c.startPhoto){var s=document.createElement('div');s.style.cssText='flex:1;text-align:center';s.innerHTML='<div style="font-size:.68rem;color:#6b7280;margin-bottom:3px">📸 시작사진</div><img src="'+c.startPhoto+'" style="width:100%;height:80px;object-fit:cover;border-radius:9px;border:1.5px solid #e2ddf5;cursor:pointer" onclick="openImgViewer(this.src)">';photos.appendChild(s)}
-      if(c.endPhoto){var en=document.createElement('div');en.style.cssText='flex:1;text-align:center';en.innerHTML='<div style="font-size:.68rem;color:#6b7280;margin-bottom:3px">✅ 완료사진</div><img src="'+c.endPhoto+'" style="width:100%;height:80px;object-fit:cover;border-radius:9px;border:1.5px solid #e2ddf5;cursor:pointer" onclick="openImgViewer(this.src)">';photos.appendChild(en)}
+      if(c.startPhoto){
+        var sDiv=document.createElement('div');
+        sDiv.style.cssText='flex:1;text-align:center';
+        sDiv.innerHTML='<div style="font-size:.68rem;color:#6b7280;margin-bottom:3px">📸 시작사진</div><img src="'+c.startPhoto+'" style="width:100%;height:80px;object-fit:cover;border-radius:9px;border:1.5px solid #e2ddf5;cursor:pointer" onclick="openImgViewer(this.src)">';
+        photos.appendChild(sDiv);
+      }
+      if(c.endPhoto){
+        var eDiv=document.createElement('div');
+        eDiv.style.cssText='flex:1;text-align:center';
+        eDiv.innerHTML='<div style="font-size:.68rem;color:#6b7280;margin-bottom:3px">✅ 완료사진</div><img src="'+c.endPhoto+'" style="width:100%;height:80px;object-fit:cover;border-radius:9px;border:1.5px solid #e2ddf5;cursor:pointer" onclick="openImgViewer(this.src)">';
+        photos.appendChild(eDiv);
+      }
       if(c.startPhoto||c.endPhoto) row.appendChild(photos);
 
       if(hasBoth && !c.approved){
@@ -1103,7 +1124,6 @@ function renderChallengeParentSection(){
             upd['certData.'+certKey+'.approvedAt']=new Date().toISOString();
             db.collection('challenge').doc('main').update(upd).then(function(){
               showToast('✅ 승인 완료!');
-              section.remove();
               renderChallengeParentSection();
             });
           };
@@ -1117,7 +1137,6 @@ function renderChallengeParentSection(){
             upd['certData.'+certKey]=firebase.firestore.FieldValue.delete();
             db.collection('challenge').doc('main').update(upd).then(function(){
               showToast('🔄 다시 인증 요청!');
-              section.remove();
               renderChallengeParentSection();
             });
           };
@@ -1128,7 +1147,10 @@ function renderChallengeParentSection(){
       section.appendChild(row);
     });
 
-    list.insertBefore(section, list.firstChild);
+    // 섹션에 실제 행이 하나라도 있을 때만 삽입
+    if(section.children.length > 1){
+      list.insertBefore(section, list.firstChild);
+    }
   });
 }
 
