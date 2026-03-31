@@ -670,6 +670,29 @@ function renderTaskList(){
         });
       }
 
+      // 삭제 버튼
+      var delBtn=document.createElement('button');
+      delBtn.style.cssText='margin-top:10px;width:100%;padding:8px;border:1.5px solid var(--accent5);border-radius:var(--radius-sm);background:white;color:var(--accent5);font-size:.78rem;font-weight:600;cursor:pointer';
+      delBtn.textContent='🗑 이 기록 삭제';
+      (function(idx){
+        delBtn.onclick=function(e){
+          e.stopPropagation();
+          if(!confirm('이 과목 기록을 삭제할까요?'))return;
+          var key=todayKey();
+          if(records[key]&&records[key][idx]){
+            delete records[key][idx];
+            saveLocal();
+            // Firestore에서도 삭제
+            var upd={};
+            upd[idx+'']=firebase.firestore.FieldValue.delete();
+            db.collection('records').doc(key).update(upd);
+            renderTaskList();
+            showToast('🗑 기록 삭제됨');
+          }
+        };
+      })(i);
+      detail.appendChild(delBtn);
+
       var isOpen=false;
       info.onclick=function(e){
         e.stopPropagation();
@@ -966,7 +989,20 @@ function saveSubjectEdit(i){var subs=currentTabSubjects(),name=document.getEleme
 function addSubject(){var input=document.getElementById('new-subject-input'),name=input.value.trim();if(!name)return;var subs=currentTabSubjects();if(subs.includes(name)){showToast('이미 있는 과목이에요');return}subs.push(name);saveLocal();cloudSaveSettings();input.value='';renderSubjectManage();renderTaskList();showToast('📚 '+name+' 추가!')}
 document.getElementById('new-subject-input').addEventListener('keydown',function(e){if(e.key==='Enter')addSubject()});
 function removeSubject(i){var subs=currentTabSubjects();if(subs.length<=1){showToast('최소 1개는 필요해요');return}var name=subs[i];subs.splice(i,1);saveLocal();cloudSaveSettings();renderSubjectManage();renderTaskList();showToast('🗑 '+name+' 삭제됨')}
-function clearAllData(){if(!confirm('모든 기록을 초기화할까요?'))return;records={};saveLocal();renderTaskList();showToast('🗑 초기화 완료')}
+function clearAllData(){
+  if(!confirm('모든 기록을 초기화할까요?\nFirestore에 저장된 데이터도 모두 삭제돼요.'))return;
+  // Firestore 전체 삭제
+  db.collection('records').get().then(function(snap){
+    var batch=db.batch();
+    snap.forEach(function(doc){batch.delete(doc.ref)});
+    return batch.commit();
+  }).then(function(){
+    records={};saveLocal();renderTaskList();showToast('🗑 초기화 완료');
+  }).catch(function(){
+    // Firestore 실패해도 로컬은 초기화
+    records={};saveLocal();renderTaskList();showToast('🗑 로컬 초기화 완료 (클라우드 오류)');
+  });
+}
 
 // ══════════════════════════════════
 // 부모 앱
