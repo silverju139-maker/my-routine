@@ -483,10 +483,13 @@ function setSyncState(s){
   if(!dot)return;
   dot.className='sync-dot'+(s==='syncing'?' syncing':s==='error'?' error':'');
 }
+var isSaving=false;
 function cloudSave(key,data){
   setSyncState('syncing');
+  isSaving=true;
   db.collection('records').doc(key).set(data,{merge:true})
-    .then(function(){setSyncState('ok')}).catch(function(){setSyncState('error')});
+    .then(function(){setSyncState('ok');setTimeout(function(){isSaving=false;},500);})
+    .catch(function(){setSyncState('error');isSaving=false;});
 }
 function cloudSaveSettings(){
   db.collection('settings').doc('subjects').set({weekday:weekdaySubjects,weekend:weekendSubjects},{merge:true});
@@ -520,19 +523,19 @@ function initChildView(){
   });
   if(unsubRecord) unsubRecord();
   unsubRecord=db.collection('records').doc(todayKey()).onSnapshot(function(snap){
+    if(isSaving) return;
     if(snap.exists){
       var remote = snap.data();
       var local = records[todayKey()] || {};
-      // 로컬과 Firestore 데이터를 병합 - 각 과목별로 더 최신 데이터 유지
       var merged = {};
       var allKeys = Object.keys(Object.assign({}, local, remote));
       allKeys.forEach(function(k){
         var l = local[k], r = remote[k];
         if(!l) { merged[k] = r; return; }
         if(!r) { merged[k] = l; return; }
-        // savedAt 기준으로 더 최신 데이터 선택
         var lTime = l.savedAt ? new Date(l.savedAt).getTime() : 0;
         var rTime = r.savedAt ? new Date(r.savedAt).getTime() : 0;
+        if(lTime > 0 && rTime === 0) { merged[k] = l; return; }
         merged[k] = lTime >= rTime ? l : r;
       });
       records[todayKey()] = merged;
@@ -605,7 +608,7 @@ function renderTaskList(){
     var chk=document.createElement('div');
     chk.className='task-check';
     chk.innerHTML='<svg width="12" height="12" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 13 4 10"/></svg>';
-    (function(idx){chk.onclick=function(e){e.stopPropagation();toggleDone(idx,e)}})(i);
+    (function(idx){chk.onclick=function(e){e.stopPropagation();/* toggleDone 비활성화 */}})(i);
 
     var info=document.createElement('div');
     info.className='task-info';
