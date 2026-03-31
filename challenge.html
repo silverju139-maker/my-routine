@@ -333,17 +333,20 @@ document.addEventListener('DOMContentLoaded', function(){
 function startListen(){
   if(unsub) unsub();
   unsub = db.collection('challenge').doc('main').onSnapshot(function(snap){
+    if(isSaving) return;
     if(snap.exists){
       var newData = snap.data();
       if(!newData.certData) newData.certData = {};
-      // ✅ 수정1: 로컬 타이머 돌고 있으면 elapsedSec·paused 보존 (onSnapshot 덮어쓰기 방지)
+      // ✅ 로컬 certData와 병합 - 로컬이 더 최신인 필드는 보존
       var k = dKey();
-      Object.keys(timers).forEach(function(idx){
-        var ck = k+'_'+idx;
-        if(challengeData.certData && challengeData.certData[ck]){
-          if(!newData.certData[ck]) newData.certData[ck] = {};
-          newData.certData[ck].elapsedSec = challengeData.certData[ck].elapsedSec;
-          newData.certData[ck].paused = challengeData.certData[ck].paused;
+      var localCert = (challengeData.certData) || {};
+      // 오늘 날짜 키는 로컬 우선 (타이머·사진 모두 보존)
+      Object.keys(localCert).forEach(function(ck){
+        if(ck.startsWith(k+'_')){
+          // 로컬에 startPhoto 있으면 무조건 로컬 우선
+          if(localCert[ck] && localCert[ck].startPhoto){
+            newData.certData[ck] = localCert[ck];
+          }
         }
       });
       challengeData = newData;
@@ -364,7 +367,13 @@ function startListen(){
   });
 }
 
-function save(){ db.collection('challenge').doc('main').set(challengeData,{merge:true}); }
+var isSaving = false;
+function save(){
+  isSaving = true;
+  db.collection('challenge').doc('main').set(challengeData,{merge:true})
+    .then(function(){ setTimeout(function(){ isSaving=false; }, 1000); })
+    .catch(function(){ isSaving=false; });
+}
 
 function switchTab(t){
   currentTab=t;
