@@ -83,7 +83,6 @@ html,body{min-height:100vh;background:var(--bg);font-family:'Noto Sans KR',sans-
 .modal-close{width:30px;height:30px;border-radius:50%;border:none;background:var(--surface2);color:var(--gray);cursor:pointer;font-size:.95rem}
 .modal-body{padding:16px;display:flex;flex-direction:column;gap:14px}
 .photo-zone{border:2px dashed var(--purple-mid);background:var(--purple-pale);border-radius:var(--radius);padding:20px;text-align:center;cursor:pointer;position:relative}
-/* ▼ input은 숨기고 label로 트리거 - 갤럭시 호환성 개선 */
 .photo-zone input[type="file"]{position:absolute;left:-9999px;opacity:0;width:1px;height:1px}
 .photo-preview{margin-top:10px;display:none}
 .photo-preview img{width:100%;border-radius:var(--radius-sm);object-fit:cover;max-height:200px}
@@ -225,7 +224,7 @@ html,body{min-height:100vh;background:var(--bg);font-family:'Noto Sans KR',sans-
   </div>
 </div>
 
-<!-- 사진 모달 - 갤럭시 호환 개선 -->
+<!-- 사진 모달 -->
 <div class="modal-backdrop" id="photo-modal">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -235,16 +234,12 @@ html,body{min-height:100vh;background:var(--bg);font-family:'Noto Sans KR',sans-
     </div>
     <div class="modal-body">
       <div style="font-size:.82rem;color:var(--gray);margin-bottom:4px" id="modal-sub"></div>
-
-      <!-- 갤럭시 대응: input을 label로 트리거, change+click 이중 처리 -->
       <input type="file" id="photo-input" accept="image/*" capture="environment" style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px">
-
       <div class="photo-zone" id="photo-zone-btn">
         <div style="font-size:2rem;margin-bottom:6px">📷</div>
         <div style="color:var(--purple);font-weight:700;font-size:.9rem">탭해서 사진 찍기</div>
         <div style="color:var(--gray);font-size:.74rem;margin-top:3px">카메라 또는 갤러리</div>
       </div>
-
       <div class="photo-preview" id="photo-preview">
         <img id="photo-preview-img" src="" alt="">
       </div>
@@ -286,7 +281,6 @@ function dKey(d){ var dt=d||new Date(); return dt.getFullYear()+'-'+(dt.getMonth
 function fmtT(s){ var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60; return (h>0?p2(h)+':':'')+p2(m)+':'+p2(sc); }
 function p2(n){ return String(n).padStart(2,'0'); }
 
-// ── 갤럭시 카메라 호환 파일 입력 처리 ──
 var photoInputEl = document.getElementById('photo-input');
 var photoZoneBtn = document.getElementById('photo-zone-btn');
 
@@ -294,17 +288,13 @@ photoZoneBtn.addEventListener('click', function(){
   photoInputEl.click();
 });
 
-// change + input 둘 다 처리, 중복 방지는 타임스탬프로
 var lastPhotoHandled = 0;
 function handlePhotoFile(input){
   var now = Date.now();
-  // 200ms 내 중복 실행 방지
   if(now - lastPhotoHandled < 200) return;
   lastPhotoHandled = now;
-
   var file = input.files && input.files[0];
   if(!file) return;
-
   var reader = new FileReader();
   reader.onload = function(e){
     photoModal.photoData = e.target.result;
@@ -314,7 +304,6 @@ function handlePhotoFile(input){
     if(previewImg) previewImg.src = e.target.result;
     if(preview) preview.style.display = 'block';
     if(saveBtn) saveBtn.disabled = false;
-    // 읽기 완료 후 초기화 (갤럭시 파일 참조 끊김 방지)
     try{ input.value = ''; }catch(ex){}
   };
   reader.onerror = function(){
@@ -345,8 +334,19 @@ function startListen(){
   if(unsub) unsub();
   unsub = db.collection('challenge').doc('main').onSnapshot(function(snap){
     if(snap.exists){
-      challengeData = snap.data();
-      if(!challengeData.certData) challengeData.certData = {};
+      var newData = snap.data();
+      if(!newData.certData) newData.certData = {};
+      // ✅ 수정1: 로컬 타이머 돌고 있으면 elapsedSec·paused 보존 (onSnapshot 덮어쓰기 방지)
+      var k = dKey();
+      Object.keys(timers).forEach(function(idx){
+        var ck = k+'_'+idx;
+        if(challengeData.certData && challengeData.certData[ck]){
+          if(!newData.certData[ck]) newData.certData[ck] = {};
+          newData.certData[ck].elapsedSec = challengeData.certData[ck].elapsedSec;
+          newData.certData[ck].paused = challengeData.certData[ck].paused;
+        }
+      });
+      challengeData = newData;
     } else {
       var t=new Date(), e=new Date(t); e.setDate(t.getDate()+13);
       challengeData = {startDate:dKey(t),endDate:dKey(e),reward100:'',reward85:'',certData:{}};
@@ -442,7 +442,15 @@ function renderChild(){
     list.innerHTML='<div class="empty"><div class="empty-icon">📚</div>기존 앱에서 과목을 설정해주세요</div>';
     return;
   }
+
+  // ✅ 수정2: 현재 진행중인 과목 확인 (다른 과목 시작 차단용)
   var k=dKey();
+  var runningSubjIdx = -1;
+  subjects.forEach(function(_,i){
+    var ck=k+'_'+i, c=(challengeData.certData||{})[ck];
+    if(c&&c.startPhoto&&!c.endPhoto&&!c.paused) runningSubjIdx=i;
+  });
+
   subjects.forEach(function(s,i){
     var cert=(challengeData.certData||{})[k+'_'+i]||{};
     var hasS=!!cert.startPhoto, hasBoth=hasS&&!!cert.endPhoto;
@@ -450,9 +458,22 @@ function renderChild(){
     var inProgress=hasS&&!hasBoth;
     var running=inProgress&&!paused;
     var elapsed=cert.elapsedSec||0;
+
+    // 다른 과목 진행중이면 이 과목 시작 버튼 비활성화
+    var blockedByOther = !hasS && runningSubjIdx >= 0 && runningSubjIdx !== i;
+
     var card=document.createElement('div');
     card.className='subject-card'+(hasBoth?' cert-done':'');
-    var statusHtml=hasBoth?'<span class="subject-status done">인증 완료 ⭐</span>':paused?'<span class="subject-status" style="color:#b45309">일시정지 ⏸</span>':inProgress?'<span class="subject-status running">진행중 ⏱️</span>':'<span class="subject-status">미인증</span>';
+    var statusHtml=hasBoth
+      ?'<span class="subject-status done">인증 완료 ⭐</span>'
+      :running
+        ?'<span class="subject-status running">진행중 ⏱️</span>'
+        :paused
+          ?'<span class="subject-status" style="color:#b45309">일시정지 ⏸</span>'
+          :blockedByOther
+            ?'<span class="subject-status" style="color:#9ca3af">대기중 ⏳</span>'
+            :'<span class="subject-status">미인증</span>';
+
     var bodyHtml='';
     if(hasBoth){
       bodyHtml='<div class="cert-photos">'+
@@ -465,11 +486,14 @@ function renderChild(){
           '<button onclick="editCert('+i+',`end`)" style="flex:1;padding:8px;background:#f0fdf4;color:#166534;border:1.5px solid #86efac;border-radius:10px;font-size:.75rem;font-weight:700;cursor:pointer">✏️ 완료사진 수정</button>'+
         '</div>';
     } else {
+      var startDisabled = hasS || blockedByOther;
+      var startLabel = hasS ? '시작완료' : blockedByOther ? '대기중' : '시작 인증';
+      var startIcon = hasS ? '✅' : blockedByOther ? '⏳' : '📸';
       bodyHtml='<div class="subject-cert-row">'+
-        '<button class="cert-btn '+(hasS?'done-state':'start')+'" '+(hasS?'disabled':'')+' onclick="openPM('+i+',\'start\')">'+
-          '<span class="cert-btn-icon">'+(hasS?'✅':'📸')+'</span><span class="cert-btn-lbl">'+(hasS?'시작완료':'시작 인증')+'</span></button>'+
+        '<button class="cert-btn '+(hasS?'done-state':'start')+'" '+(startDisabled?'disabled':'')+' onclick="openPM('+i+',\'start\')">'+
+          '<span class="cert-btn-icon">'+startIcon+'</span><span class="cert-btn-lbl">'+startLabel+'</span></button>'+
         '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0">'+
-          '<div class="timer-box '+(running&&!paused?'running':'')+'" id="timer-'+i+'">'+fmtT(elapsed)+'</div>'+
+          '<div class="timer-box '+(running?'running':'')+'" id="timer-'+i+'">'+fmtT(elapsed)+'</div>'+
           (inProgress?'<button onclick="togglePause('+i+')" style="font-size:.65rem;padding:3px 8px;border:1.5px solid var(--border);border-radius:99px;background:'+(paused?'#dcfce7':'#fee2e2')+';color:'+(paused?'#166534':'#991b1b')+';cursor:pointer;font-weight:700">'+(paused?'▶ 재시작':'⏸ 일시정지')+'</button>':'')+
         '</div>'+
         '<button class="cert-btn end" '+(!hasS||paused||(getGoalSec(i)>0&&elapsed<getGoalSec(i))?'disabled':'')+' onclick="openPM('+i+',\'end\')">'+
@@ -478,7 +502,7 @@ function renderChild(){
     }
     card.innerHTML='<div class="subject-header"><span class="subject-name">'+s+'</span>'+statusHtml+'</div>'+bodyHtml;
     list.appendChild(card);
-    if(running && !paused) startTick(i,elapsed);
+    if(running) startTick(i,elapsed);
   });
 }
 
@@ -549,6 +573,20 @@ function togglePause(idx){
 }
 
 function openPM(idx,type){
+  // ✅ 수정2: start 타입일 때 다른 과목 진행중이면 차단
+  if(type==='start'){
+    var k=dKey();
+    var runningIdx = -1;
+    subjects.forEach(function(_,i){
+      if(i===idx) return;
+      var ck=k+'_'+i, c=(challengeData.certData||{})[ck];
+      if(c&&c.startPhoto&&!c.endPhoto&&!c.paused) runningIdx=i;
+    });
+    if(runningIdx>=0){
+      showToast('⏸ '+subjects[runningIdx]+' 진행중! 먼저 완료해주세요 🎯');
+      return;
+    }
+  }
   if(type==='end'){
     var goalSec=getGoalSec(idx);
     var k=dKey(), ck=k+'_'+idx;
@@ -565,7 +603,6 @@ function openPM(idx,type){
   document.getElementById('modal-sub').textContent=type==='start'?'📸 공부 시작 전 사진을 찍어주세요!':'✅ 공부 완료 후 사진을 찍어주세요!';
   document.getElementById('photo-preview').style.display='none';
   document.getElementById('photo-preview-img').src='';
-  // input 초기화 (갤럭시에서 이전 파일 캐시 방지)
   photoInputEl.value='';
   document.getElementById('modal-save-btn').disabled=true;
   document.getElementById('photo-modal').classList.add('open');
