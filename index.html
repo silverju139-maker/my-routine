@@ -415,8 +415,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
         <div class="audio-list" id="audio-list"></div>
       </div>
     </div>
-    <div style="padding:0 20px 20px">
-      <button class="save-btn" onclick="saveRecord()">저장하기 💾</button>
+    <div style="padding:0 20px 20px;position:relative;z-index:10">
+      <button class="save-btn" onclick="saveRecord()" style="position:relative;z-index:10">저장하기 💾</button>
     </div>
   </div>
 </div>
@@ -527,21 +527,18 @@ function initChildView(){
   unsubRecord=db.collection('records').doc(todayKey()).onSnapshot(function(snap){
     if(isSaving) return;
     if(snap.exists){
-      var remote = snap.data();
-      var local = records[todayKey()] || {};
-      var merged = {};
-      var allKeys = Object.keys(Object.assign({}, local, remote));
+      var remote=snap.data(),local=records[todayKey()]||{},merged={};
+      var allKeys=Object.keys(Object.assign({},local,remote));
       allKeys.forEach(function(k){
-        var l = local[k], r = remote[k];
-        if(!l) { merged[k] = r; return; }
-        if(!r) { merged[k] = l; return; }
-        var lTime = l.savedAt ? new Date(l.savedAt).getTime() : 0;
-        var rTime = r.savedAt ? new Date(r.savedAt).getTime() : 0;
-        if(lTime > 0 && rTime === 0) { merged[k] = l; return; }
-        merged[k] = lTime >= rTime ? l : r;
+        var l=local[k],r=remote[k];
+        if(!l){merged[k]=r;return;}
+        if(!r){merged[k]=l;return;}
+        var lTime=l.savedAt?new Date(l.savedAt).getTime():0;
+        var rTime=r.savedAt?new Date(r.savedAt).getTime():0;
+        if(lTime>0&&rTime===0){merged[k]=l;return;}
+        merged[k]=lTime>=rTime?l:r;
       });
-      records[todayKey()] = merged;
-      saveLocal();
+      records[todayKey()]=merged;saveLocal();
     }
     renderTaskList(); checkParentBanner();
   });
@@ -727,7 +724,6 @@ function saveRecord(){
   var r=records[key][currentIdx];
   r.note=document.getElementById('note-input').value;
   r.photos=modal.photos.slice();r.audios=modal.audios.slice();
-  // 저장하기 누르면 완료 처리
   r.done=true;
   r.savedAt=new Date().toISOString();
   saveLocal();
