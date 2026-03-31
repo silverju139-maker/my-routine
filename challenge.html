@@ -467,6 +467,8 @@ function renderChild(){
     var inProgress=hasS&&!hasBoth;
     var running=inProgress&&!paused;
     var elapsed=cert.elapsedSec||0;
+    // 새로고침 후 타이머 복원 - running 상태면 자동으로 이어서 시작
+    if(running && !timers[i]) startTick(i, elapsed);
 
     // 다른 과목 진행중이면 이 과목 시작 버튼 비활성화
     var blockedByOther = !hasS && runningSubjIdx >= 0 && runningSubjIdx !== i;
@@ -511,7 +513,7 @@ function renderChild(){
     }
     card.innerHTML='<div class="subject-header"><span class="subject-name">'+s+'</span>'+statusHtml+'</div>'+bodyHtml;
     list.appendChild(card);
-    if(running) startTick(i,elapsed);
+    // startTick은 위에서 이미 처리
   });
 }
 
