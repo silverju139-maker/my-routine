@@ -82,7 +82,9 @@ html,body{min-height:100vh;background:var(--bg);font-family:'Noto Sans KR',sans-
 .modal-title{font-family:'Gmarket Sans';font-size:1rem;font-weight:700}
 .modal-close{width:30px;height:30px;border-radius:50%;border:none;background:var(--surface2);color:var(--gray);cursor:pointer;font-size:.95rem}
 .modal-body{padding:16px;display:flex;flex-direction:column;gap:14px}
-.photo-zone{border:2px dashed var(--purple-mid);background:var(--purple-pale);border-radius:var(--radius);padding:20px;text-align:center;cursor:pointer}
+.photo-zone{border:2px dashed var(--purple-mid);background:var(--purple-pale);border-radius:var(--radius);padding:20px;text-align:center;cursor:pointer;position:relative}
+/* ▼ input은 숨기고 label로 트리거 - 갤럭시 호환성 개선 */
+.photo-zone input[type="file"]{position:absolute;left:-9999px;opacity:0;width:1px;height:1px}
 .photo-preview{margin-top:10px;display:none}
 .photo-preview img{width:100%;border-radius:var(--radius-sm);object-fit:cover;max-height:200px}
 .save-btn{width:100%;padding:14px;border:none;border-radius:var(--radius);background:linear-gradient(135deg,var(--purple),var(--purple2));color:white;font-family:'Gmarket Sans';font-size:.98rem;font-weight:700;cursor:pointer}
@@ -223,6 +225,7 @@ html,body{min-height:100vh;background:var(--bg);font-family:'Noto Sans KR',sans-
   </div>
 </div>
 
+<!-- 사진 모달 - 갤럭시 호환 개선 -->
 <div class="modal-backdrop" id="photo-modal">
   <div class="modal">
     <div class="modal-handle"></div>
@@ -232,12 +235,16 @@ html,body{min-height:100vh;background:var(--bg);font-family:'Noto Sans KR',sans-
     </div>
     <div class="modal-body">
       <div style="font-size:.82rem;color:var(--gray);margin-bottom:4px" id="modal-sub"></div>
-      <div class="photo-zone" onclick="document.getElementById('photo-input').click()">
-        <input type="file" id="photo-input" accept="image/*" capture="environment" onchange="handlePhoto(this)" style="display:none">
+
+      <!-- 갤럭시 대응: input을 label로 트리거, change+click 이중 처리 -->
+      <input type="file" id="photo-input" accept="image/*" capture="environment" style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px">
+
+      <div class="photo-zone" id="photo-zone-btn">
         <div style="font-size:2rem;margin-bottom:6px">📷</div>
         <div style="color:var(--purple);font-weight:700;font-size:.9rem">탭해서 사진 찍기</div>
         <div style="color:var(--gray);font-size:.74rem;margin-top:3px">카메라 또는 갤러리</div>
       </div>
+
       <div class="photo-preview" id="photo-preview">
         <img id="photo-preview-img" src="" alt="">
       </div>
@@ -278,6 +285,46 @@ function isWE(d){ var x=(d||new Date()).getDay(); return x===0||x===6; }
 function dKey(d){ var dt=d||new Date(); return dt.getFullYear()+'-'+(dt.getMonth()+1)+'-'+dt.getDate(); }
 function fmtT(s){ var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60; return (h>0?p2(h)+':':'')+p2(m)+':'+p2(sc); }
 function p2(n){ return String(n).padStart(2,'0'); }
+
+// ── 갤럭시 카메라 호환 파일 입력 처리 ──
+var photoInputEl = document.getElementById('photo-input');
+var photoZoneBtn = document.getElementById('photo-zone-btn');
+
+photoZoneBtn.addEventListener('click', function(){
+  photoInputEl.click();
+});
+
+// change + input 둘 다 처리, 중복 방지는 타임스탬프로
+var lastPhotoHandled = 0;
+function handlePhotoFile(input){
+  var now = Date.now();
+  // 200ms 내 중복 실행 방지
+  if(now - lastPhotoHandled < 200) return;
+  lastPhotoHandled = now;
+
+  var file = input.files && input.files[0];
+  if(!file) return;
+
+  var reader = new FileReader();
+  reader.onload = function(e){
+    photoModal.photoData = e.target.result;
+    var previewImg = document.getElementById('photo-preview-img');
+    var preview = document.getElementById('photo-preview');
+    var saveBtn = document.getElementById('modal-save-btn');
+    if(previewImg) previewImg.src = e.target.result;
+    if(preview) preview.style.display = 'block';
+    if(saveBtn) saveBtn.disabled = false;
+    // 읽기 완료 후 초기화 (갤럭시 파일 참조 끊김 방지)
+    try{ input.value = ''; }catch(ex){}
+  };
+  reader.onerror = function(){
+    showToast('사진을 읽지 못했어요. 다시 시도해주세요 📷');
+  };
+  reader.readAsDataURL(file);
+}
+
+photoInputEl.addEventListener('change', function(){ handlePhotoFile(this); });
+photoInputEl.addEventListener('input',  function(){ handlePhotoFile(this); });
 
 document.addEventListener('DOMContentLoaded', function(){
   var isParent = location.search.includes('parent');
@@ -513,15 +560,18 @@ function openPM(idx,type){
       return;
     }
   }
-  photoModal={subjIdx:idx,type:type,photoData:null};
+  photoModal={subjIdx:idx, type:type, photoData:null};
   document.getElementById('modal-title').textContent=subjects[idx];
   document.getElementById('modal-sub').textContent=type==='start'?'📸 공부 시작 전 사진을 찍어주세요!':'✅ 공부 완료 후 사진을 찍어주세요!';
   document.getElementById('photo-preview').style.display='none';
-  document.getElementById('photo-input').value='';
+  document.getElementById('photo-preview-img').src='';
+  // input 초기화 (갤럭시에서 이전 파일 캐시 방지)
+  photoInputEl.value='';
   document.getElementById('modal-save-btn').disabled=true;
   document.getElementById('photo-modal').classList.add('open');
   document.body.style.overflow='hidden';
 }
+
 function editCert(idx, type){
   var k=dKey(), ck=k+'_'+idx;
   if(!challengeData.certData) challengeData.certData={};
@@ -534,20 +584,12 @@ function editCert(idx, type){
   openPM(idx, type);
 }
 
-function closeModal(){ document.getElementById('photo-modal').classList.remove('open'); document.body.style.overflow=''; }
-document.getElementById('photo-modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
-
-function handlePhoto(input){
-  var file=input.files[0]; if(!file) return;
-  var reader=new FileReader();
-  reader.onload=function(e){
-    photoModal.photoData=e.target.result;
-    document.getElementById('photo-preview-img').src=e.target.result;
-    document.getElementById('photo-preview').style.display='block';
-    document.getElementById('modal-save-btn').disabled=false;
-  };
-  reader.readAsDataURL(file);
+function closeModal(){
+  document.getElementById('photo-modal').classList.remove('open');
+  document.body.style.overflow='';
+  photoInputEl.value='';
 }
+document.getElementById('photo-modal').addEventListener('click',function(e){if(e.target===this)closeModal();});
 
 function confirmPhoto(){
   if(!photoModal.photoData){showToast('사진을 먼저 찍어주세요 📷');return;}
