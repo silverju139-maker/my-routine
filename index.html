@@ -520,7 +520,24 @@ function initChildView(){
   });
   if(unsubRecord) unsubRecord();
   unsubRecord=db.collection('records').doc(todayKey()).onSnapshot(function(snap){
-    if(snap.exists){records[todayKey()]=snap.data();saveLocal();}
+    if(snap.exists){
+      var remote = snap.data();
+      var local = records[todayKey()] || {};
+      // 로컬과 Firestore 데이터를 병합 - 각 과목별로 더 최신 데이터 유지
+      var merged = {};
+      var allKeys = Object.keys(Object.assign({}, local, remote));
+      allKeys.forEach(function(k){
+        var l = local[k], r = remote[k];
+        if(!l) { merged[k] = r; return; }
+        if(!r) { merged[k] = l; return; }
+        // savedAt 기준으로 더 최신 데이터 선택
+        var lTime = l.savedAt ? new Date(l.savedAt).getTime() : 0;
+        var rTime = r.savedAt ? new Date(r.savedAt).getTime() : 0;
+        merged[k] = lTime >= rTime ? l : r;
+      });
+      records[todayKey()] = merged;
+      saveLocal();
+    }
     renderTaskList(); checkParentBanner();
   });
   renderTaskList(); checkBadges(); scheduleAlarms();
@@ -668,8 +685,9 @@ function toggleDone(i,e){
   if(!records[key])records[key]={};
   if(!records[key][i])records[key][i]={};
   records[key][i].done=!records[key][i].done;
+  records[key][i].savedAt=new Date().toISOString(); // 로컬에도 savedAt 저장
   saveLocal();
-  var upd={};upd[i+'']={done:records[key][i].done,savedAt:new Date().toISOString()};
+  var upd={};upd[i+'']={done:records[key][i].done,savedAt:records[key][i].savedAt};
   cloudSave(key,upd);
   renderTaskList();
   if(records[key][i].done){showToast('✅ 완료!');checkBadges();}
