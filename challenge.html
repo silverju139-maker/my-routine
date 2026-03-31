@@ -90,6 +90,7 @@ html,body{min-height:100vh;background:var(--bg);font-family:'Noto Sans KR',sans-
 .save-btn:disabled{opacity:.4;cursor:not-allowed}
 .parent-cert-card{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:10px}
 .parent-cert-card.approved-card{border-color:#86efac}
+.parent-cert-card.in-progress-card{border-color:#a78bfa;background:#faf8ff}
 .pcc-header{padding:10px 14px;background:var(--surface2);display:flex;align-items:center;justify-content:space-between}
 .pcc-name{font-weight:700;font-size:.9rem}
 .pcc-time{font-size:.72rem;color:var(--gray)}
@@ -99,6 +100,7 @@ html,body{min-height:100vh;background:var(--bg);font-family:'Noto Sans KR',sans-
 .pcc-photo-box img{width:100%;height:100%;object-fit:cover}
 .pcc-photo-label{font-size:.65rem;color:var(--gray);text-align:center;margin-top:4px;font-weight:600}
 .pcc-timer{background:var(--dark);color:#a855f7;border-radius:var(--radius-sm);padding:6px 12px;font-family:'Gmarket Sans';font-size:.85rem;font-weight:700;text-align:center;margin:0 14px 10px}
+.pcc-timer.running{color:#a3e635}
 .pcc-btns{display:flex;gap:8px;padding:0 14px 12px}
 .pcc-btn{flex:1;padding:9px;border:none;border-radius:var(--radius-sm);font-family:'Noto Sans KR';font-size:.8rem;font-weight:700;cursor:pointer}
 .pcc-btn.approve{background:var(--green-pale);color:#166534}
@@ -274,6 +276,7 @@ var challengeData = {};
 var currentTab = 'child';
 var photoModal = {subjIdx:null, type:null, photoData:null};
 var timers = {};
+var parentTimers = {};
 var unsub = null;
 
 function isWE(d){ var x=(d||new Date()).getDay(); return x===0||x===6; }
@@ -337,13 +340,10 @@ function startListen(){
     if(snap.exists){
       var newData = snap.data();
       if(!newData.certData) newData.certData = {};
-      // ✅ 로컬 certData와 병합 - 로컬이 더 최신인 필드는 보존
       var k = dKey();
       var localCert = (challengeData.certData) || {};
-      // 오늘 날짜 키는 로컬 우선 (타이머·사진 모두 보존)
       Object.keys(localCert).forEach(function(ck){
         if(ck.startsWith(k+'_')){
-          // 로컬에 startPhoto 있으면 무조건 로컬 우선
           if(localCert[ck] && localCert[ck].startPhoto){
             newData.certData[ck] = localCert[ck];
           }
@@ -377,6 +377,8 @@ function save(){
 
 function switchTab(t){
   currentTab=t;
+  // 부모 탭 떠날 때 부모용 타이머 정리
+  if(t !== 'parent') stopAllParentTimers();
   ['child','parent','result','settings'].forEach(function(x){
     document.getElementById('screen-'+x).style.display=x===t?'block':'none';
     var tabEl = document.getElementById('tab-'+x);
@@ -452,7 +454,6 @@ function renderChild(){
     return;
   }
 
-  // ✅ 수정2: 현재 진행중인 과목 확인 (다른 과목 시작 차단용)
   var k=dKey();
   var runningSubjIdx = -1;
   subjects.forEach(function(_,i){
@@ -467,10 +468,8 @@ function renderChild(){
     var inProgress=hasS&&!hasBoth;
     var running=inProgress&&!paused;
     var elapsed=cert.elapsedSec||0;
-    // 새로고침 후 타이머 복원 - running 상태면 자동으로 이어서 시작
     if(running && !timers[i]) startTick(i, elapsed);
 
-    // 다른 과목 진행중이면 이 과목 시작 버튼 비활성화
     var blockedByOther = !hasS && runningSubjIdx >= 0 && runningSubjIdx !== i;
 
     var card=document.createElement('div');
@@ -513,7 +512,6 @@ function renderChild(){
     }
     card.innerHTML='<div class="subject-header"><span class="subject-name">'+s+'</span>'+statusHtml+'</div>'+bodyHtml;
     list.appendChild(card);
-    // startTick은 위에서 이미 처리
   });
 }
 
@@ -543,8 +541,27 @@ function startTick(idx,sec){
         el.textContent=fmtT(s); el.style.color='#a855f7';
       }
     }
+    // 부모 탭 타이머도 동시 업데이트
+    var pel=document.getElementById('ptimer-'+idx);
+    if(pel){ pel.textContent='⏱️ 진행중 '+fmtT(s); }
     if(goalSec>0&&s===goalSec&&!alerted){ alerted=true; fireGoalAlarm(idx); }
   },1000);
+}
+
+// 부모 탭 전용 표시 타이머 (읽기전용, 아이 타이머와 분리)
+function startParentDisplayTick(idx, initSec){
+  if(parentTimers[idx]) clearInterval(parentTimers[idx]);
+  var s = initSec || 0;
+  parentTimers[idx] = setInterval(function(){
+    s++;
+    var el = document.getElementById('ptimer-'+idx);
+    if(el){ el.textContent = '⏱️ 진행중 '+fmtT(s); }
+  }, 1000);
+}
+
+function stopAllParentTimers(){
+  Object.keys(parentTimers).forEach(function(k){ clearInterval(parentTimers[k]); });
+  parentTimers = {};
 }
 
 function fireGoalAlarm(idx){
@@ -584,7 +601,6 @@ function togglePause(idx){
 }
 
 function openPM(idx,type){
-  // ✅ 수정2: start 타입일 때 다른 과목 진행중이면 차단
   if(type==='start'){
     var k=dKey();
     var runningIdx = -1;
@@ -661,28 +677,69 @@ function confirmPhoto(){
 }
 
 function renderParent(){
+  stopAllParentTimers();
   var list=document.getElementById('parent-cert-list');
   list.innerHTML='';
   var k=dKey(), hasAny=false;
   subjects.forEach(function(s,i){
     var cert=(challengeData.certData||{})[k+'_'+i];
-    if(!cert||(!cert.startPhoto&&!cert.endPhoto)) return;
+    // ✅ startPhoto만 있어도 표시 (진행중 포함)
+    if(!cert||!cert.startPhoto) return;
     hasAny=true;
-    var elapsed=cert.elapsedSec||0, mins=Math.floor(elapsed/60);
+    var elapsed=cert.elapsedSec||0;
+    var inProgress=cert.startPhoto&&!cert.endPhoto;
+    var paused=cert.paused||false;
+
     var card=document.createElement('div');
-    card.className='parent-cert-card'+(cert.approved?' approved-card':'');
+    card.className='parent-cert-card'+(cert.approved?' approved-card':inProgress?' in-progress-card':'');
+
+    // 상태 뱃지
+    var statusBadge=cert.approved
+      ?'<span style="font-size:.72rem;font-weight:700;color:#166534;background:#dcfce7;padding:3px 8px;border-radius:99px">✅ 승인완료</span>'
+      :inProgress
+        ?paused
+          ?'<span style="font-size:.72rem;font-weight:700;color:#b45309;background:#fffbeb;padding:3px 8px;border-radius:99px">⏸ 일시정지</span>'
+          :'<span style="font-size:.72rem;font-weight:700;color:#7c3aed;background:#ede9fe;padding:3px 8px;border-radius:99px">⏱️ 진행중</span>'
+        :'<span style="font-size:.72rem;font-weight:700;color:#374151;background:#f3f4f6;padding:3px 8px;border-radius:99px">📸 인증완료</span>';
+
+    // 완료 사진 칸
+    var endPhotoHtml=cert.endPhoto
+      ?'<img src="'+cert.endPhoto+'" onclick="openImg(this.src)">'
+      :'<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:4px"><span style="font-size:1.5rem">⏳</span><span style="font-size:.62rem;color:#6b7280">'+(paused?'일시정지':'공부중...')+'</span></div>';
+
+    // 타이머 표시
+    var timerHtml='';
+    if(elapsed>0){
+      var timerLabel=inProgress&&!paused?'⏱️ 진행중 '+fmtT(elapsed):'총 '+fmtT(elapsed);
+      timerHtml='<div class="pcc-timer'+(inProgress&&!paused?' running':'')+'" id="ptimer-'+i+'">'+timerLabel+'</div>';
+    }
+
+    // 버튼
     var btns=cert.approved
-      ?'<button class="pcc-btn approved">✅ 승인 완료</button><button class="pcc-btn" onclick="cancelApprove(\''+k+'_'+i+'\')" style="background:#fff3cd;color:#b45309;border:1.5px solid #fde68a">↩️ 승인 취소</button><button class="pcc-btn" onclick="deleteS(\''+k+'_'+i+'\')" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5">🗑️ 삭제</button>'
-      :'<button class="pcc-btn approve" onclick="approveS(\''+k+'_'+i+'\')">👍 승인</button><button class="pcc-btn retry" onclick="retryS(\''+k+'_'+i+'\')">🔄 다시 인증</button><button class="pcc-btn" onclick="deleteS(\''+k+'_'+i+'\')" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5">🗑️ 삭제</button>';
+      ?'<button class="pcc-btn approved">✅ 승인 완료</button>'+
+        '<button class="pcc-btn" onclick="cancelApprove(\''+k+'_'+i+'\')" style="background:#fff3cd;color:#b45309;border:1.5px solid #fde68a">↩️ 승인 취소</button>'+
+        '<button class="pcc-btn" onclick="deleteS(\''+k+'_'+i+'\')" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5">🗑️ 삭제</button>'
+      :inProgress
+        ?'<button class="pcc-btn" disabled style="background:#ede9fe;color:#7c3aed;opacity:1;cursor:default;flex:2">⏱️ 아이가 공부중이에요...</button>'+
+          '<button class="pcc-btn" onclick="deleteS(\''+k+'_'+i+'\')" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5">🗑️</button>'
+        :'<button class="pcc-btn approve" onclick="approveS(\''+k+'_'+i+'\')">👍 승인</button>'+
+          '<button class="pcc-btn retry" onclick="retryS(\''+k+'_'+i+'\')">🔄 다시 인증</button>'+
+          '<button class="pcc-btn" onclick="deleteS(\''+k+'_'+i+'\')" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5">🗑️ 삭제</button>';
+
     card.innerHTML=
-      '<div class="pcc-header"><span class="pcc-name">'+s+'</span><span class="pcc-time">'+(elapsed>0?mins+'분 공부':'인증됨')+'</span></div>'+
+      '<div class="pcc-header"><span class="pcc-name">'+s+'</span>'+statusBadge+'</div>'+
       '<div class="pcc-photos">'+
-        '<div class="pcc-photo"><div class="pcc-photo-box">'+(cert.startPhoto?'<img src="'+cert.startPhoto+'" onclick="openImg(this.src)">':'📚')+'</div><div class="pcc-photo-label">시작 사진</div></div>'+
-        '<div class="pcc-photo"><div class="pcc-photo-box">'+(cert.endPhoto?'<img src="'+cert.endPhoto+'" onclick="openImg(this.src)">':'⏳')+'</div><div class="pcc-photo-label">완료 사진</div></div>'+
+        '<div class="pcc-photo"><div class="pcc-photo-box"><img src="'+cert.startPhoto+'" onclick="openImg(this.src)"></div><div class="pcc-photo-label">시작 사진</div></div>'+
+        '<div class="pcc-photo"><div class="pcc-photo-box">'+endPhotoHtml+'</div><div class="pcc-photo-label">'+(cert.endPhoto?'완료 사진':'완료 대기중')+'</div></div>'+
       '</div>'+
-      (elapsed>0?'<div class="pcc-timer">총 '+fmtT(elapsed)+'</div>':'')+
+      timerHtml+
       '<div class="pcc-btns">'+btns+'</div>';
     list.appendChild(card);
+
+    // 진행중이고 일시정지 아닐 때만 부모 탭 타이머 시작
+    if(inProgress && !paused && elapsed>0){
+      startParentDisplayTick(i, elapsed);
+    }
   });
   if(!hasAny) list.innerHTML='<div class="empty"><div class="empty-icon">📭</div>오늘 아직 인증된 과목이 없어요</div>';
 }
