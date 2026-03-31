@@ -725,12 +725,13 @@ function saveRecord(){
   var r=records[key][currentIdx];
   r.note=document.getElementById('note-input').value;
   r.photos=modal.photos.slice();r.audios=modal.audios.slice();
-  // done은 체크박스로만 변경, 기록하기 저장 시엔 기존 done 상태 유지
+  // 저장하기 누르면 완료 처리
+  r.done=true;
   r.savedAt=new Date().toISOString();
   saveLocal();
-  var upd={};upd[currentIdx+'']={note:r.note,done:r.done||false,savedAt:r.savedAt,photos:r.photos,audios:r.audios};
+  var upd={};upd[currentIdx+'']={note:r.note,done:r.done,savedAt:r.savedAt,photos:r.photos,audios:r.audios};
   cloudSave(key,upd);
-  closeModal();renderTaskList();showToast('💾 저장되었습니다!');checkBadges();
+  closeModal();renderTaskList();showToast('✅ 완료!');checkBadges();
 }
 
 function handlePhotoUpload(input){
