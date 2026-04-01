@@ -777,6 +777,21 @@ function saveRecord(){
   closeModal();renderTaskList();showToast('✅ 완료!');checkBadges();
 }
 
+function compressPhoto(dataUrl, callback){
+  var img = new Image();
+  img.onload = function(){
+    var canvas = document.createElement('canvas');
+    var MAX = 600;
+    var w = img.width, h = img.height;
+    if(w > h){ if(w > MAX){ h = Math.round(h*MAX/w); w = MAX; } }
+    else { if(h > MAX){ w = Math.round(w*MAX/h); h = MAX; } }
+    canvas.width = w; canvas.height = h;
+    canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+    callback(canvas.toDataURL('image/jpeg', 0.6));
+  };
+  img.src = dataUrl;
+}
+
 function handlePhotoUpload(input){
   var files=Array.from(input.files);
   if(!files.length) return;
@@ -784,13 +799,14 @@ function handlePhotoUpload(input){
   files.forEach(function(file){
     var reader=new FileReader();
     reader.onload=function(e){
-      modal.photos.push(e.target.result);
-      loaded++;
-      // 모든 파일 읽은 후에 input 초기화 (갤럭시에서 파일 참조 끊김 방지)
-      if(loaded===files.length){
-        try{input.value='';}catch(ex){}
-      }
-      renderPhotoPreview();
+      compressPhoto(e.target.result, function(compressed){
+        modal.photos.push(compressed);
+        loaded++;
+        if(loaded===files.length){
+          try{input.value='';}catch(ex){}
+        }
+        renderPhotoPreview();
+      });
     };
     reader.readAsDataURL(file);
   });
