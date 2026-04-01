@@ -335,7 +335,7 @@ function handlePhotoFile(input){
 photoInputEl.addEventListener('change', function(){ handlePhotoFile(this); });
 photoInputEl.addEventListener('input',  function(){ handlePhotoFile(this); });
 
-document.addEventListener('DOMContentLoaded', function(){
+function initApp(){
   var isParent = location.search.includes('parent');
   if(isParent){
     document.getElementById('tab-parent').style.display = '';
@@ -348,7 +348,14 @@ document.addEventListener('DOMContentLoaded', function(){
     })
     .catch(function(){})
     .finally(function(){ startListen(); });
-});
+}
+
+// DOMContentLoaded 또는 이미 로드된 경우 모두 대응
+if(document.readyState === 'loading'){
+  document.addEventListener('DOMContentLoaded', initApp);
+} else {
+  initApp();
+}
 
 function startListen(){
   if(unsub) unsub();
