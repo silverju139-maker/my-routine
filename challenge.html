@@ -274,6 +274,7 @@ var challengeData = {};
 var currentTab = 'child';
 var photoModal = {subjIdx:null, type:null, photoData:null};
 var timers = {};
+var isSaving = false;
 var unsub = null;
 
 function isWE(d){ var x=(d||new Date()).getDay(); return x===0||x===6; }
@@ -386,7 +387,6 @@ function startListen(){
   });
 }
 
-var isSaving = false;
 function save(){
   isSaving = true;
   db.collection('challenge').doc('main').set(challengeData,{merge:true})
