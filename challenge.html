@@ -281,6 +281,23 @@ function dKey(d){ var dt=d||new Date(); return dt.getFullYear()+'-'+(dt.getMonth
 function fmtT(s){ var h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sc=s%60; return (h>0?p2(h)+':':'')+p2(m)+':'+p2(sc); }
 function p2(n){ return String(n).padStart(2,'0'); }
 
+// 사진 압축 함수 (Firestore 1MB 제한 대응)
+function compressPhoto(dataUrl, callback){
+  var img = new Image();
+  img.onload = function(){
+    var canvas = document.createElement('canvas');
+    var MAX = 600; // 최대 600px
+    var w = img.width, h = img.height;
+    if(w > h){ if(w > MAX){ h = Math.round(h*MAX/w); w = MAX; } }
+    else { if(h > MAX){ w = Math.round(w*MAX/h); h = MAX; } }
+    canvas.width = w; canvas.height = h;
+    var ctx = canvas.getContext('2d');
+    ctx.drawImage(img, 0, 0, w, h);
+    callback(canvas.toDataURL('image/jpeg', 0.6));
+  };
+  img.src = dataUrl;
+}
+
 var photoInputEl = document.getElementById('photo-input');
 var photoZoneBtn = document.getElementById('photo-zone-btn');
 
@@ -297,13 +314,15 @@ function handlePhotoFile(input){
   if(!file) return;
   var reader = new FileReader();
   reader.onload = function(e){
-    photoModal.photoData = e.target.result;
-    var previewImg = document.getElementById('photo-preview-img');
-    var preview = document.getElementById('photo-preview');
-    var saveBtn = document.getElementById('modal-save-btn');
-    if(previewImg) previewImg.src = e.target.result;
-    if(preview) preview.style.display = 'block';
-    if(saveBtn) saveBtn.disabled = false;
+    compressPhoto(e.target.result, function(compressed){
+      photoModal.photoData = compressed;
+      var previewImg = document.getElementById('photo-preview-img');
+      var preview = document.getElementById('photo-preview');
+      var saveBtn = document.getElementById('modal-save-btn');
+      if(previewImg) previewImg.src = compressed;
+      if(preview) preview.style.display = 'block';
+      if(saveBtn) saveBtn.disabled = false;
+    });
     try{ input.value = ''; }catch(ex){}
   };
   reader.onerror = function(){
