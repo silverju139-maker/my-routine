@@ -607,13 +607,12 @@ function renderTaskList(){
 
     var top=document.createElement('div');
     top.className='task-card-top';
-    // 카드 top 영역 클릭이 체크박스 토글로 버블링되는 것 방지
     top.addEventListener('click',function(e){e.stopPropagation();});
 
     var chk=document.createElement('div');
     chk.className='task-check';
     chk.innerHTML='<svg width="12" height="12" fill="none" stroke="white" stroke-width="3" viewBox="0 0 24 24"><polyline points="20 6 9 13 4 10"/></svg>';
-    (function(idx){chk.onclick=function(e){e.stopPropagation();/* toggleDone 비활성화 */}})(i);
+    (function(idx){chk.onclick=function(e){e.stopPropagation();}})(i);
 
     var info=document.createElement('div');
     info.className='task-info';
@@ -671,7 +670,6 @@ function renderTaskList(){
         });
       }
 
-      // 삭제 버튼
       var delBtn=document.createElement('button');
       delBtn.style.cssText='margin-top:10px;width:100%;padding:8px;border:1.5px solid var(--accent5);border-radius:var(--radius-sm);background:white;color:var(--accent5);font-size:.78rem;font-weight:600;cursor:pointer';
       delBtn.textContent='🗑 이 기록 삭제';
@@ -683,7 +681,6 @@ function renderTaskList(){
           if(records[key]&&records[key][idx]){
             delete records[key][idx];
             saveLocal();
-            // Firestore에서도 삭제
             var upd={};
             upd[idx+'']=firebase.firestore.FieldValue.delete();
             db.collection('records').doc(key).update(upd);
@@ -716,7 +713,7 @@ function toggleDone(i,e){
   if(!records[key])records[key]={};
   if(!records[key][i])records[key][i]={};
   records[key][i].done=!records[key][i].done;
-  records[key][i].savedAt=new Date().toISOString(); // 로컬에도 savedAt 저장
+  records[key][i].savedAt=new Date().toISOString();
   saveLocal();
   var upd={};upd[i+'']={done:records[key][i].done,savedAt:records[key][i].savedAt};
   cloudSave(key,upd);
@@ -740,9 +737,8 @@ function openModal(idx){
   document.getElementById('modal-subject-title').textContent=todaySubjects()[idx];
   document.getElementById('note-input').value=rec.note||'';
   renderPhotoPreview();renderAudioList();
-  // 기존 기록 있으면 삭제 버튼 표시
   var delBtn=document.getElementById('modal-delete-btn');
-  if(delBtn) delBtn.style.display=rec.done||rec.note||( rec.photos&&rec.photos.length)?'block':'none';
+  if(delBtn) delBtn.style.display=rec.done||rec.note||(rec.photos&&rec.photos.length)?'block':'none';
   document.getElementById('record-modal').classList.add('open');
   document.body.style.overflow='hidden';
 }
@@ -1024,7 +1020,6 @@ document.getElementById('new-subject-input').addEventListener('keydown',function
 function removeSubject(i){var subs=currentTabSubjects();if(subs.length<=1){showToast('최소 1개는 필요해요');return}var name=subs[i];subs.splice(i,1);saveLocal();cloudSaveSettings();renderSubjectManage();renderTaskList();showToast('🗑 '+name+' 삭제됨')}
 function clearAllData(){
   if(!confirm('모든 기록을 초기화할까요?\nFirestore에 저장된 데이터도 모두 삭제돼요.'))return;
-  // Firestore 전체 삭제
   db.collection('records').get().then(function(snap){
     var batch=db.batch();
     snap.forEach(function(doc){batch.delete(doc.ref)});
@@ -1032,7 +1027,6 @@ function clearAllData(){
   }).then(function(){
     records={};saveLocal();renderTaskList();showToast('🗑 초기화 완료');
   }).catch(function(){
-    // Firestore 실패해도 로컬은 초기화
     records={};saveLocal();renderTaskList();showToast('🗑 로컬 초기화 완료 (클라우드 오류)');
   });
 }
@@ -1043,7 +1037,6 @@ function clearAllData(){
 function initParentView(){
   document.getElementById('parent-app').style.display='block';
   document.title='👨‍👩‍👧 우리 아이 기록';
-  // 브라우저 알림 권한 요청
   if('Notification' in window && Notification.permission==='default'){
     Notification.requestPermission();
   }
@@ -1073,7 +1066,6 @@ function subscribeParentRecord(){
   if(parentUnsubRecord)parentUnsubRecord();
   parentUnsubRecord=db.collection('records').doc(dateKey(parentDate)).onSnapshot(function(snap){
     renderParentTasks(dateKey(parentDate),snap.exists?snap.data():{});
-    // 일반 과목 렌더 완료 후 챌린지 섹션 삽입
     renderChallengeParentSection();
   });
 }
@@ -1082,10 +1074,8 @@ var prevDoneCount = {};
 function renderParentTasks(key,rec){
   var d=parentDate,subs=(d.getDay()===0||d.getDay()===6)?weekendSubjects:weekdaySubjects,total=subs.length;
   var done=subs.filter(function(_,i){return rec[i]&&rec[i].done}).length;
-  // 새로 완료된 과목 알림
   var prevCount = prevDoneCount[key]||0;
   if(done > prevCount && prevCount >= 0 && 'Notification' in window && Notification.permission==='granted'){
-    var newlyDone = subs.filter(function(_,i){return rec[i]&&rec[i].done}).slice(prevCount);
     new Notification('📚 학습 완료!', {
       body: done+'/'+ total+' 완료했어요! 잘하고 있어요 👍',
       icon: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f4da.png',
@@ -1153,7 +1143,6 @@ function renderParentTasks(key,rec){
 
 function renderChallengeParentSection(){
   var todayStr = dateKey(parentDate);
-  // 기존에 삽입된 챌린지 섹션 제거 (중복 방지)
   var existing = document.getElementById('challenge-parent-section');
   if(existing) existing.remove();
 
@@ -1168,7 +1157,7 @@ function renderChallengeParentSection(){
     var subs = isWeekend(parentDate) ? weekendSubjects : weekdaySubjects;
     var list = document.getElementById('parent-task-list');
     var section = document.createElement('div');
-    section.id = 'challenge-parent-section'; // ID 부여 → 중복 삽입 방지
+    section.id = 'challenge-parent-section';
     section.style.cssText='background:linear-gradient(135deg,#ede9fe,#fce7f3);border:1.5px solid #7c3aed;border-radius:16px;overflow:hidden;margin-bottom:10px';
 
     var header = document.createElement('div');
@@ -1205,21 +1194,7 @@ function renderChallengeParentSection(){
         row.appendChild(timeEl);
       }
 
-      var photos = document.createElement('div');
-      photos.style.cssText='display:flex;gap:8px;margin-bottom:8px';
-      if(c.startPhoto){
-        var sDiv=document.createElement('div');
-        sDiv.style.cssText='flex:1;text-align:center';
-        sDiv.innerHTML='<div style="font-size:.68rem;color:#6b7280;margin-bottom:3px">📸 시작사진</div><img src="'+c.startPhoto+'" style="width:100%;height:80px;object-fit:cover;border-radius:9px;border:1.5px solid #e2ddf5;cursor:pointer" onclick="openImgViewer(this.src)">';
-        photos.appendChild(sDiv);
-      }
-      if(c.endPhoto){
-        var eDiv=document.createElement('div');
-        eDiv.style.cssText='flex:1;text-align:center';
-        eDiv.innerHTML='<div style="font-size:.68rem;color:#6b7280;margin-bottom:3px">✅ 완료사진</div><img src="'+c.endPhoto+'" style="width:100%;height:80px;object-fit:cover;border-radius:9px;border:1.5px solid #e2ddf5;cursor:pointer" onclick="openImgViewer(this.src)">';
-        photos.appendChild(eDiv);
-      }
-      if(c.startPhoto||c.endPhoto) row.appendChild(photos);
+      // ▼ 사진 부분 삭제됨 ▼
 
       if(hasBoth && !c.approved){
         var btns = document.createElement('div');
@@ -1257,7 +1232,6 @@ function renderChallengeParentSection(){
       section.appendChild(row);
     });
 
-    // 섹션에 실제 행이 하나라도 있을 때만 삽입
     if(section.children.length > 1){
       list.insertBefore(section, list.firstChild);
     }
