@@ -721,16 +721,20 @@ function renderParent(){
       timerHtml='<div class="pcc-timer'+(inProgress&&!paused?' running':'')+'" id="ptimer-'+i+'">'+timerLabel+'</div>';
     }
 
+    var certKey=k+'_'+i;
     var btns=cert.approved
-      ?'<button class="pcc-btn approved">✅ 승인 완료</button>'+
-        '<button class="pcc-btn" onclick="cancelApprove(''+k+'_'+i+'')" style="background:#fff3cd;color:#b45309;border:1.5px solid #fde68a">↩️ 승인 취소</button>'+
-        '<button class="pcc-btn" onclick="deleteS(''+k+'_'+i+'')" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5">🗑️ 삭제</button>'
+      ?['<button class="pcc-btn approved">✅ 승인 완료</button>',
+        '<button class="pcc-btn" onclick="cancelApprove(\'' + certKey + '\')" style="background:#fff3cd;color:#b45309;border:1.5px solid #fde68a">↩️ 승인 취소</button>',
+        '<button class="pcc-btn" onclick="deleteS(\'' + certKey + '\')" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5">🗑️ 삭제</button>'
+       ].join('')
       :inProgress
-        ?'<button class="pcc-btn" disabled style="background:#ede9fe;color:#7c3aed;opacity:1;cursor:default;flex:2">⏱️ 아이가 '+(paused?'일시정지중':'공부중이에요...')+'</button>'+
-          '<button class="pcc-btn" onclick="deleteS(''+k+'_'+i+'')" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5">🗑️</button>'
-        :'<button class="pcc-btn approve" onclick="approveS(''+k+'_'+i+'')">👍 승인</button>'+
-          '<button class="pcc-btn retry" onclick="retryS(''+k+'_'+i+'')">🔄 다시 인증</button>'+
-          '<button class="pcc-btn" onclick="deleteS(''+k+'_'+i+'')" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5">🗑️ 삭제</button>';
+        ?['<button class="pcc-btn" disabled style="background:#ede9fe;color:#7c3aed;opacity:1;cursor:default;flex:2">⏱️ 아이가 '+(paused?'일시정지중':'공부중이에요...')+'</button>',
+          '<button class="pcc-btn" onclick="deleteS(\'' + certKey + '\')" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5">🗑️</button>'
+         ].join('')
+        :['<button class="pcc-btn approve" onclick="approveS(\'' + certKey + '\')">👍 승인</button>',
+          '<button class="pcc-btn retry" onclick="retryS(\'' + certKey + '\')">🔄 다시 인증</button>',
+          '<button class="pcc-btn" onclick="deleteS(\'' + certKey + '\')" style="background:#fee2e2;color:#991b1b;border:1.5px solid #fca5a5">🗑️ 삭제</button>'
+         ].join('');
 
     card.innerHTML=
       '<div class="pcc-header"><span class="pcc-name">'+s+'</span>'+statusBadge+'</div>'+
