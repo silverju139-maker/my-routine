@@ -82,8 +82,7 @@ html,body{min-height:100vh;background:var(--bg);font-family:'Noto Sans KR',sans-
 .modal-title{font-family:'Gmarket Sans';font-size:1rem;font-weight:700}
 .modal-close{width:30px;height:30px;border-radius:50%;border:none;background:var(--surface2);color:var(--gray);cursor:pointer;font-size:.95rem}
 .modal-body{padding:16px;display:flex;flex-direction:column;gap:14px}
-.photo-zone{border:2px dashed var(--purple-mid);background:var(--purple-pale);border-radius:var(--radius);padding:20px;text-align:center;cursor:pointer;position:relative}
-.photo-zone input[type="file"]{position:absolute;left:-9999px;opacity:0;width:1px;height:1px}
+.photo-zone{border:2px dashed var(--purple-mid);background:var(--purple-pale);border-radius:var(--radius);padding:20px;text-align:center;cursor:pointer;position:relative;display:block}
 .photo-preview{margin-top:10px;display:none}
 .photo-preview img{width:100%;border-radius:var(--radius-sm);object-fit:cover;max-height:200px}
 .save-btn{width:100%;padding:14px;border:none;border-radius:var(--radius);background:linear-gradient(135deg,var(--purple),var(--purple2));color:white;font-family:'Gmarket Sans';font-size:.98rem;font-weight:700;cursor:pointer}
@@ -234,12 +233,15 @@ html,body{min-height:100vh;background:var(--bg);font-family:'Noto Sans KR',sans-
     </div>
     <div class="modal-body">
       <div style="font-size:.82rem;color:var(--gray);margin-bottom:4px" id="modal-sub"></div>
-      <input type="file" id="photo-input" accept="image/*" capture="environment" style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px">
-      <div class="photo-zone" id="photo-zone-btn">
+
+      <!-- ✅ 수정1: input을 label 안에 직접 넣어 네이티브 연결 (capture 제거) -->
+      <label class="photo-zone" id="photo-zone-btn">
+        <input type="file" id="photo-input" accept="image/*" style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px">
         <div style="font-size:2rem;margin-bottom:6px">📷</div>
         <div style="color:var(--purple);font-weight:700;font-size:.9rem">탭해서 사진 찍기</div>
         <div style="color:var(--gray);font-size:.74rem;margin-top:3px">카메라 또는 갤러리</div>
-      </div>
+      </label>
+
       <div class="photo-preview" id="photo-preview">
         <img id="photo-preview-img" src="" alt="">
       </div>
@@ -287,7 +289,7 @@ function compressPhoto(dataUrl, callback){
   var img = new Image();
   img.onload = function(){
     var canvas = document.createElement('canvas');
-    var MAX = 600; // 최대 600px
+    var MAX = 600;
     var w = img.width, h = img.height;
     if(w > h){ if(w > MAX){ h = Math.round(h*MAX/w); w = MAX; } }
     else { if(h > MAX){ w = Math.round(w*MAX/h); h = MAX; } }
@@ -300,11 +302,8 @@ function compressPhoto(dataUrl, callback){
 }
 
 var photoInputEl = document.getElementById('photo-input');
-var photoZoneBtn = document.getElementById('photo-zone-btn');
 
-photoZoneBtn.addEventListener('click', function(){
-  photoInputEl.click();
-});
+// ✅ 수정2: photoZoneBtn click 이벤트 제거 (label이 자동 연결하므로 불필요)
 
 var lastPhotoHandled = 0;
 function handlePhotoFile(input){
@@ -350,7 +349,6 @@ function initApp(){
     .finally(function(){ startListen(); });
 }
 
-// DOMContentLoaded 또는 이미 로드된 경우 모두 대응
 if(document.readyState === 'loading'){
   document.addEventListener('DOMContentLoaded', initApp);
 } else {
@@ -364,13 +362,10 @@ function startListen(){
     if(snap.exists){
       var newData = snap.data();
       if(!newData.certData) newData.certData = {};
-      // ✅ 로컬 certData와 병합 - 로컬이 더 최신인 필드는 보존
       var k = dKey();
       var localCert = (challengeData.certData) || {};
-      // 오늘 날짜 키는 로컬 우선 (타이머·사진 모두 보존)
       Object.keys(localCert).forEach(function(ck){
         if(ck.startsWith(k+'_')){
-          // 로컬에 startPhoto 있으면 무조건 로컬 우선
           if(localCert[ck] && localCert[ck].startPhoto){
             newData.certData[ck] = localCert[ck];
           }
@@ -478,7 +473,6 @@ function renderChild(){
     return;
   }
 
-  // ✅ 수정2: 현재 진행중인 과목 확인 (다른 과목 시작 차단용)
   var k=dKey();
   var runningSubjIdx = -1;
   subjects.forEach(function(_,i){
@@ -493,10 +487,8 @@ function renderChild(){
     var inProgress=hasS&&!hasBoth;
     var running=inProgress&&!paused;
     var elapsed=cert.elapsedSec||0;
-    // 새로고침 후 타이머 복원 - running 상태면 자동으로 이어서 시작
     if(running && !timers[i]) startTick(i, elapsed);
 
-    // 다른 과목 진행중이면 이 과목 시작 버튼 비활성화
     var blockedByOther = !hasS && runningSubjIdx >= 0 && runningSubjIdx !== i;
 
     var card=document.createElement('div');
@@ -539,7 +531,6 @@ function renderChild(){
     }
     card.innerHTML='<div class="subject-header"><span class="subject-name">'+s+'</span>'+statusHtml+'</div>'+bodyHtml;
     list.appendChild(card);
-    // startTick은 위에서 이미 처리
   });
 }
 
@@ -558,7 +549,6 @@ function startTick(idx,sec){
     var k=dKey(), ck=k+'_'+idx;
     if(!challengeData.certData[ck]) challengeData.certData[ck]={};
     challengeData.certData[ck].elapsedSec=s;
-    // 10초마다 Firestore에 저장 (새로고침 후 복원용)
     if(s % 10 === 0) save();
     var el=document.getElementById('timer-'+idx);
     if(el){
@@ -612,7 +602,6 @@ function togglePause(idx){
 }
 
 function openPM(idx,type){
-  // ✅ 수정2: start 타입일 때 다른 과목 진행중이면 차단
   if(type==='start'){
     var k=dKey();
     var runningIdx = -1;
