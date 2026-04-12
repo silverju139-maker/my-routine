@@ -21,6 +21,27 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--accent3);display:inline-block;margin-left:6px;vertical-align:middle}
 .sync-dot.syncing{background:var(--accent4);animation:blink .8s infinite}
 .sync-dot.error{background:var(--accent5)}
+/* ── 알림 배너 ── */
+.notif-banner{
+  position:fixed;top:0;left:0;right:0;z-index:999;
+  transform:translateY(-100%);transition:transform .4s cubic-bezier(.4,0,.2,1);
+  cursor:pointer;
+}
+.notif-banner.show{transform:translateY(0)}
+.notif-banner-inner{
+  margin:8px 12px;border-radius:16px;
+  padding:13px 16px;display:flex;align-items:center;gap:12px;
+  box-shadow:0 8px 30px rgba(0,0,0,.18);
+}
+.notif-banner.type-done .notif-banner-inner{background:linear-gradient(135deg,#10b981,#059669)}
+.notif-banner.type-cheer .notif-banner-inner{background:linear-gradient(135deg,#7c3aed,#a855f7)}
+.notif-banner.type-comment .notif-banner-inner{background:linear-gradient(135deg,#f59e0b,#d97706)}
+.notif-banner-emoji{font-size:1.6rem;flex-shrink:0}
+.notif-banner-text{flex:1;color:white}
+.notif-banner-title{font-family:'Gmarket Sans';font-size:.9rem;font-weight:700;line-height:1.3}
+.notif-banner-sub{font-size:.75rem;opacity:.88;margin-top:2px}
+.notif-banner-close{color:rgba(255,255,255,.7);font-size:1rem;flex-shrink:0;padding:2px 4px}
+
 @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 .bottom-nav{position:fixed;bottom:0;left:0;right:0;z-index:200;background:var(--surface);border-top:1px solid var(--border);display:flex;padding-bottom:env(safe-area-inset-bottom,0px);box-shadow:0 -4px 20px rgba(124,58,237,.08)}
 .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 0 6px;cursor:pointer;border:none;background:none;color:var(--text-dim);font-size:.62rem;font-weight:500;transition:color .2s}
@@ -71,8 +92,7 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 .modal-close{width:30px;height:30px;border-radius:50%;border:none;background:var(--surface2);color:var(--text-muted);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.95rem}
 .modal-body{padding:18px;display:flex;flex-direction:column;gap:16px}
 .field-label{font-size:.78rem;font-weight:600;color:var(--text-muted);margin-bottom:5px}
-.photo-upload-zone{border:2px dashed var(--accent-light);background:var(--accent-light);border-radius:var(--radius);padding:18px;text-align:center;cursor:pointer;position:relative}
-.photo-upload-zone input{display:none}
+.photo-upload-zone{border:2px dashed var(--accent-light);background:var(--accent-light);border-radius:var(--radius);padding:18px;text-align:center;cursor:pointer;position:relative;display:block}
 .photo-preview-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin-top:7px}
 .photo-thumb{aspect-ratio:1;border-radius:9px;object-fit:cover;border:2px solid var(--border);width:100%;display:block}
 .photo-thumb-wrap{position:relative}
@@ -226,6 +246,18 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 </style>
 </head>
 <body>
+
+<!-- ✅ 알림 배너 -->
+<div class="notif-banner" id="notif-banner" onclick="closeNotifBanner()">
+  <div class="notif-banner-inner">
+    <div class="notif-banner-emoji" id="notif-emoji">🎉</div>
+    <div class="notif-banner-text">
+      <div class="notif-banner-title" id="notif-title"></div>
+      <div class="notif-banner-sub" id="notif-sub"></div>
+    </div>
+    <div class="notif-banner-close">✕</div>
+  </div>
+</div>
 
 <!-- 아이 화면 -->
 <div id="child-app" style="display:none">
@@ -398,7 +430,8 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
     <div class="modal-body">
       <div>
         <div class="field-label">📷 사진 첨부</div>
-       <label class="photo-upload-zone" style="cursor:pointer;display:block">
+        <!-- ✅ 수정: div onclick → label로 변경 (안드로이드 사진 저장 버튼 작동 안 하는 문제 해결) -->
+        <label class="photo-upload-zone" style="cursor:pointer;display:block">
           <input type="file" id="photo-input" accept="image/*" multiple onchange="handlePhotoUpload(this)" style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px">
           <div style="font-size:1.8rem;margin-bottom:4px">📸</div>
           <div style="color:var(--accent);font-weight:600;font-size:.88rem">사진 추가하기</div>
@@ -444,9 +477,35 @@ body{background:var(--bg);color:var(--text);font-family:'Noto Sans KR',sans-seri
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script>
-// ══════════════════════════════════
-// FIREBASE
-// ══════════════════════════════════
+
+// ── 알림 배너 ──
+var notifTimer = null;
+function showNotifBanner(type, emoji, title, sub){
+  var banner = document.getElementById('notif-banner');
+  banner.className = 'notif-banner type-' + type;
+  document.getElementById('notif-emoji').textContent = emoji;
+  document.getElementById('notif-title').textContent = title;
+  document.getElementById('notif-sub').textContent = sub;
+  banner.classList.add('show');
+  try{ if(navigator.vibrate) navigator.vibrate([100,50,100]); }catch(e){}
+  try{
+    var ctx = new(window.AudioContext||window.webkitAudioContext)();
+    var freqs = type==='done'?[523,659]:type==='cheer'?[659,784,1047]:[784,659];
+    freqs.forEach(function(f,i){
+      var o=ctx.createOscillator(),g=ctx.createGain();
+      o.connect(g);g.connect(ctx.destination);
+      o.frequency.value=f;
+      g.gain.setValueAtTime(.15,ctx.currentTime+i*.15);
+      g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+i*.15+.25);
+      o.start(ctx.currentTime+i*.15);o.stop(ctx.currentTime+i*.15+.25);
+    });
+  }catch(e){}
+  clearTimeout(notifTimer);
+  notifTimer = setTimeout(closeNotifBanner, 4000);
+}
+function closeNotifBanner(){
+  document.getElementById('notif-banner').classList.remove('show');
+}
 var firebaseConfig = {
   apiKey: "AIzaSyD8qlxN9Bv5VQUAc33ak-iMY20A9Hm1Jyc",
   authDomain: "my-routine-6c65a.firebaseapp.com",
@@ -458,9 +517,6 @@ var firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 var db = firebase.firestore();
 
-// ══════════════════════════════════
-// STATE
-// ══════════════════════════════════
 var isParent = location.search.includes('parent');
 var weekdaySubjects = JSON.parse(localStorage.getItem('r_weekday')||'["국어","수학","영어","사회","과학","코딩"]');
 var weekendSubjects = JSON.parse(localStorage.getItem('r_weekend')||'["영어","수학","독서"]');
@@ -502,9 +558,6 @@ function cloudSaveSettings(){
   db.collection('settings').doc('subjects').set({weekday:weekdaySubjects,weekend:weekendSubjects},{merge:true});
 }
 
-// ══════════════════════════════════
-// INIT
-// ══════════════════════════════════
 window.onload = function(){
   db.collection('settings').doc('subjects').get().then(function(snap){
     if(snap.exists){
@@ -518,9 +571,9 @@ window.onload = function(){
   }).catch(function(){ if(isParent) initParentView(); else initChildView(); });
 };
 
-// ══════════════════════════════════
-// 아이 앱
-// ══════════════════════════════════
+// 아이: 엄마 응원/댓글 감지용
+var prevParentMsgAt = {}, prevCommentCount = {}, isFirstChildLoad = true;
+
 function initChildView(){
   document.getElementById('child-app').style.display='block';
   document.getElementById('parent-link-display').textContent=location.href.split('?')[0]+'?parent';
@@ -543,6 +596,32 @@ function initChildView(){
         if(lTime>0&&rTime===0){merged[k]=l;return;}
         merged[k]=lTime>=rTime?l:r;
       });
+      // ✅ 엄마 응원/댓글 실시간 감지
+      if(!isFirstChildLoad){
+        todaySubjects().forEach(function(_,i){
+          var r=merged[i]; if(!r) return;
+          if(r.parentMsgAt && r.parentMsgAt !== prevParentMsgAt[i]){
+            if(prevParentMsgAt[i] !== undefined)
+              showNotifBanner('cheer','💌','엄마 응원이 왔어요!', r.parentMsg||'응원해요 💜');
+            prevParentMsgAt[i] = r.parentMsgAt;
+          }
+          var cc = (r.comments||[]).length;
+          if(cc > (prevCommentCount[i]||0)){
+            if(prevCommentCount[i] !== undefined){
+              var last=r.comments[r.comments.length-1];
+              showNotifBanner('comment','💬','엄마 댓글이 달렸어요!', last?last.text:'');
+            }
+            prevCommentCount[i] = cc;
+          }
+        });
+      } else {
+        todaySubjects().forEach(function(_,i){
+          var r=merged[i]; if(!r) return;
+          prevParentMsgAt[i]=r.parentMsgAt||null;
+          prevCommentCount[i]=(r.comments||[]).length;
+        });
+        isFirstChildLoad = false;
+      }
       records[todayKey()]=merged;saveLocal();
     }
     renderTaskList(); checkParentBanner();
@@ -589,7 +668,6 @@ function switchPage(name){
 function loadRecordsThenCalendar(){db.collection('records').get().then(function(snap){snap.forEach(function(d){records[d.id]=d.data()});saveLocal();renderCalendar()}).catch(function(){renderCalendar()})}
 function loadRecordsThenReport(){db.collection('records').get().then(function(snap){snap.forEach(function(d){records[d.id]=d.data()});saveLocal();renderReport()}).catch(function(){renderReport()})}
 
-// ── 태스크 목록 ──
 function renderTaskList(){
   var list=document.getElementById('task-list');if(!list)return;
   var key=todayKey();if(!records[key])records[key]={};
@@ -744,7 +822,6 @@ function updateProgress(){
   if(pb)pb.style.width=total>0?(done/total*100)+'%':'0%';
 }
 
-// ── 모달 ──
 function openModal(idx){
   currentIdx=idx;
   var key=todayKey(),rec=(records[key]&&records[key][idx])||{};
@@ -874,7 +951,6 @@ function renderAudioList(){
 
 function copyParentLink(){var url=location.href.split('?')[0]+'?parent';navigator.clipboard.writeText(url).then(function(){showToast('🔗 링크 복사됨!')})}
 
-// ── 알림 ──
 function renderAlarmList(){
   var list=document.getElementById('alarm-list');if(!list)return;list.innerHTML='';
   if(!alarms.length){list.innerHTML='<div style="padding:12px 14px;font-size:.82rem;color:var(--text-dim)">알림을 추가해보세요!</div>';return}
@@ -899,7 +975,6 @@ function fireAlarm(a){
   try{var ctx=new(window.AudioContext||window.webkitAudioContext)();[523,659,784].forEach(function(f,i){var o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);o.frequency.value=f;g.gain.setValueAtTime(.3,ctx.currentTime+i*.15);g.gain.exponentialRampToValueAtTime(.001,ctx.currentTime+i*.15+.3);o.start(ctx.currentTime+i*.15);o.stop(ctx.currentTime+i*.15+.3)})}catch(e){}
 }
 
-// ── 배지 ──
 var BADGE_DEFS=[
   {id:'first_done',emoji:'🌱',name:'첫 걸음',desc:'처음으로 과목을 완료했어요!',check:function(){return Object.values(records).some(function(r){return Object.values(r).some(function(x){return x.done})})}},
   {id:'day_clear',emoji:'⭐',name:'완벽한 하루',desc:'하루 모든 과목을 완료했어요!',check:function(){return Object.entries(records).some(function(e){var k=e[0],r=e[1],d=new Date(k.replace(/(\d+)-(\d+)-(\d+)/,'$1/$2/$3')),s=isWeekend(d)?weekendSubjects:weekdaySubjects;return s.length>0&&Object.values(r).filter(function(x){return x.done}).length===s.length})}},
@@ -917,7 +992,6 @@ function checkBadges(){BADGE_DEFS.forEach(function(b){if(!earnedBadges.includes(
 function showBadgePopup(b){document.getElementById('badge-popup-emoji').textContent=b.emoji;document.getElementById('badge-popup-title').textContent='🏆 '+b.name+' 획득!';document.getElementById('badge-popup-desc').textContent=b.desc;document.getElementById('badge-overlay').classList.add('show');document.getElementById('badge-popup').classList.add('show')}
 function closeBadgePopup(){document.getElementById('badge-overlay').classList.remove('show');document.getElementById('badge-popup').classList.remove('show')}
 
-// ── 주간 리포트 ──
 function getWeekDates(off){var now=new Date(),day=now.getDay(),mon=new Date(now);mon.setDate(now.getDate()-(day===0?6:day-1)+off*7);return Array.from({length:7},function(_,i){var d=new Date(mon);d.setDate(mon.getDate()+i);return d})}
 function renderReport(){
   var dates=getWeekDates(reportWeekOffset),s=dates[0],e=dates[6];
@@ -934,7 +1008,6 @@ function renderReport(){
 document.getElementById('week-prev').onclick=function(){reportWeekOffset--;renderReport()};
 document.getElementById('week-next').onclick=function(){if(reportWeekOffset<0){reportWeekOffset++;renderReport()}};
 
-// ── 캘린더 ──
 function renderCalendar(){
   var now=new Date();if(calYear===undefined){calYear=now.getFullYear();calMonth=now.getMonth()}
   document.getElementById('cal-title').textContent=calYear+'년 '+(calMonth+1)+'월';
@@ -995,7 +1068,6 @@ function showDayDetail(key,label){
   detail.scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
-// ── 설정 ──
 var subjectTab='weekday';
 function setSubjectTab(t){
   subjectTab=t;
@@ -1046,15 +1118,9 @@ function clearAllData(){
   });
 }
 
-// ══════════════════════════════════
-// 부모 앱
-// ══════════════════════════════════
 function initParentView(){
   document.getElementById('parent-app').style.display='block';
   document.title='👨‍👩‍👧 우리 아이 기록';
-  if('Notification' in window && Notification.permission==='default'){
-    Notification.requestPermission();
-  }
   setParentDateDisplay();
   subscribeParentRecord();
   document.getElementById('parent-date-prev').onclick=function(){
@@ -1075,26 +1141,35 @@ function setParentDateDisplay(){
   document.getElementById('parent-date-title').textContent=(d.getMonth()+1)+'월 '+d.getDate()+'일 ('+days[d.getDay()]+')'+(isToday?' — 오늘':'');
 }
 
+// 부모: 아이 완료 감지용
+var prevDoneState = {}, isFirstParentLoad = true;
+
 function subscribeParentRecord(){
   if(parentUnsubRecord)parentUnsubRecord();
+  isFirstParentLoad = true; prevDoneState = {};
   parentUnsubRecord=db.collection('records').doc(dateKey(parentDate)).onSnapshot(function(snap){
-    renderParentTasks(dateKey(parentDate),snap.exists?snap.data():{});
+    var rec = snap.exists ? snap.data() : {};
+    // ✅ 아이 완료 실시간 감지
+    if(!isFirstParentLoad){
+      var subs=(parentDate.getDay()===0||parentDate.getDay()===6)?weekendSubjects:weekdaySubjects;
+      subs.forEach(function(subj,i){
+        var isDone = rec[i] && rec[i].done;
+        if(isDone && !prevDoneState[i])
+          showNotifBanner('done','⭐', subj+' 완료!', '아이가 학습을 마쳤어요 💪 응원해주세요!');
+        prevDoneState[i] = isDone;
+      });
+    } else {
+      var subs=(parentDate.getDay()===0||parentDate.getDay()===6)?weekendSubjects:weekdaySubjects;
+      subs.forEach(function(_,i){ prevDoneState[i] = rec[i] && rec[i].done; });
+      isFirstParentLoad = false;
+    }
+    renderParentTasks(dateKey(parentDate), rec);
   });
 }
 
-var prevDoneCount = {};
 function renderParentTasks(key,rec){
   var d=parentDate,subs=(d.getDay()===0||d.getDay()===6)?weekendSubjects:weekdaySubjects,total=subs.length;
   var done=subs.filter(function(_,i){return rec[i]&&rec[i].done}).length;
-  var prevCount = prevDoneCount[key]||0;
-  if(done > prevCount && prevCount >= 0 && 'Notification' in window && Notification.permission==='granted'){
-    new Notification('📚 학습 완료!', {
-      body: done+'/'+ total+' 완료했어요! 잘하고 있어요 👍',
-      icon: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f4da.png',
-      tag: 'study-done'
-    });
-  }
-  prevDoneCount[key] = done;
   document.getElementById('parent-prog-text').textContent=done+' / '+total;
   document.getElementById('parent-prog-bar').style.width=total?(done/total*100)+'%':'0%';
   var list=document.getElementById('parent-task-list');
@@ -1182,9 +1257,6 @@ function sendComment(input,key,idx){
   .catch(function(){setSyncState('error')});
 }
 
-// ══════════════════════════════════
-// 공통 유틸
-// ══════════════════════════════════
 function openImgViewer(src){document.getElementById('img-viewer-img').src=src;document.getElementById('img-viewer').classList.add('open')}
 function closeImgViewer(){document.getElementById('img-viewer').classList.remove('open')}
 document.getElementById('img-viewer').onclick=function(e){if(e.target===this||e.target.tagName==='BUTTON')closeImgViewer()};
